@@ -37,7 +37,26 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const
   canvas.addEventListener(type, (e) => game.pointerUp(e.pointerId));
 }
 
-// Try to start audio on every touch start and end; iOS accepts only some of them.
+// Sound needs one tap on the play button: iOS starts audio from a tap, never
+// from a drag, and almost everything in the game is a drag. The button comes
+// back whenever iOS pauses audio, for one more tap.
+const start = document.getElementById('start')!;
+start.addEventListener('click', () => {
+  audio.unlock();
+  start.hidden = true;
+  // If iOS refused anyway, offer the button again.
+  setTimeout(() => {
+    if (!audio.isRunning()) start.hidden = false;
+  }, 600);
+});
+audio.onPaused(() => {
+  if (document.visibilityState === 'visible') start.hidden = false;
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !audio.isRunning()) start.hidden = false;
+});
+
+// Also try to start audio on every touch start and end; iOS accepts only some of them.
 for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) {
   document.addEventListener(type, audio.unlock, { capture: true, passive: true });
 }

@@ -16,7 +16,7 @@ import {
 import * as audio from './audio';
 import { Splashes } from './fx';
 import { SNORE_SECONDS } from './objects/animals';
-import { drawFruit, type FruitKind } from './objects/fruit';
+import { FRUIT, drawFruit, type FruitKind } from './objects/fruit';
 import { Item } from './objects/item';
 import { Puddle } from './objects/puddle';
 import { Stack, type Anchor } from './objects/stack';
@@ -41,6 +41,11 @@ interface Vanishing {
   y: number;
   age: number;
   into: 'water' | 'mouth';
+  /** Drawing order: just in front of the puddle it sinks into. */
+  depth: number;
+  /** Sinking fruit: the water line it slides down through, and how far it goes. */
+  waterline?: number;
+  drop?: number;
 }
 
 const SINK_SECONDS = 0.3;
@@ -257,6 +262,11 @@ export class Game {
         stack.vy *= k;
       }
     }
+    this.drop(stack);
+  }
+
+  /** Let go somewhere plain: low on the ground it stays at that depth, in the air it falls in front. */
+  private drop(stack: Stack): void {
     stack.fixedFloor =
       stack.bottom >= GROUND_BAND ? Math.min(FRONT_FLOOR, Math.max(GROUND_Y, stack.bottom)) : null;
     stack.state = 'falling';
@@ -271,9 +281,9 @@ export class Game {
     stack.state = 'falling';
   }
 
-  /** The animal whose mouth is nearest to a carried pile of food, if close enough. */
+  /** The animal whose mouth is nearest to the food being held, if close enough. */
   private mouthFor(food: Stack): { item: Item; dist: number } | null {
-    if (!food.items.every((i) => i.food)) return null;
+    if (!food.items[0].food) return null;
     const fx = food.x;
     const fy = food.bottom - food.items[0].height / 2;
     let best: { item: Item; dist: number } | null = null;
@@ -288,21 +298,24 @@ export class Game {
     return best;
   }
 
-  /** The animal eats the whole pile, one bite per piece. */
+  /** The animal eats only the piece being held; anything stacked on it drops to the ground. */
   private feed(animal: Item, food: Stack): void {
     const owner = this.stacks.find((s) => s.items.includes(animal))!;
     const shown = owner.shown().find((s) => s.item === animal)!;
-    food.items.forEach((item, i) => {
-      this.vanishing.push({
-        kind: item.kind as FruitKind,
-        x: shown.x,
-        y: shown.y + animal.mouthY - i * 6,
-        age: -i * 0.35,
-        into: 'mouth',
-      });
+    const eaten = food.items.shift()!;
+    this.vanishing.push({
+      kind: eaten.kind as FruitKind,
+      x: shown.x,
+      y: shown.y + animal.mouthY,
+      age: 0,
+      into: 'mouth',
+      depth: Infinity,
     });
-    animal.feed(food.items.length);
-    this.removeStack(food);
+    animal.feed();
+    if (food.items.length === 0) return this.removeStack(food);
+    food.bottom -= eaten.height;
+    food.vx = food.vy = 0;
+    this.drop(food);
   }
 
   private towerUnder(stack: Stack): Stack | null {
@@ -521,7 +534,16 @@ export class Game {
   private sinkBottom(stack: Stack, puddle: Puddle): void {
     const first = stack.items.shift()!;
     const y = stack.bottom - first.height / 2;
-    this.vanishing.push({ kind: first.kind as FruitKind, x: stack.x, y, age: 0, into: 'water' });
+    this.vanishing.push({
+      kind: first.kind as FruitKind,
+      x: stack.x,
+      y,
+      age: 0,
+      into: 'water',
+      depth: puddle.depth + 0.6,
+      waterline: stack.bottom,
+      drop: first.height + 8,
+    });
     this.splashes.splash(stack.x, puddle.surfaceY, 1);
     puddle.ripple(stack.x, 1);
     audio.plock(1);
@@ -543,6 +565,28 @@ export class Game {
     const water = stack.drowningIn ?? stack.floatingIn;
     if (water) return water.depth + 0.5;
     return stack.floor;
+  }
+
+  /**
+   * Sinking fruit slides down through its own spot on the water, as if through
+   * a hole: whatever is below the water line there is hidden.
+   */
+  private drawSinking(ctx: CanvasRenderingContext2D, v: Vanishing, t: number): void {
+    const waterline = v.waterline!;
+    const r = FRUIT[v.kind].radius;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(v.x - r * 2, waterline - 400, r * 4, 400);
+    ctx.clip();
+    drawFruit(ctx, v.kind, v.x, v.y + v.drop! * t * t, 0, 1, 1);
+    ctx.restore();
+    ctx.strokeStyle = palette.waterLight;
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 1 - t * 0.5;
+    ctx.beginPath();
+    ctx.ellipse(v.x, waterline, r * 0.95, 6, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 
   /** A floating tower bobs gently, its bottom hidden under the water line. */
@@ -605,11 +649,11 @@ export class Game {
         },
       })),
       ...this.vanishing.map((v) => ({
-        depth: v.into === 'water' ? GROUND_Y + 4.6 : Infinity,
+        depth: v.depth,
         draw: () => {
           if (v.age < 0) return;
           const t = v.age / SINK_SECONDS;
-          if (v.into === 'water') drawFruit(ctx, v.kind, v.x, v.y + t * 30, 0, 1 + t * 0.2, 1 - t * 0.7, 1 - t);
+          if (v.into === 'water') this.drawSinking(ctx, v, t);
           else drawFruit(ctx, v.kind, v.x, v.y, 0, 1 - t * 0.8, 1 - t * 0.8, 1 - t);
         },
       })),

@@ -10,8 +10,9 @@ export const STEP = 1 / 60;
 export const GRAB_SLOP = 32;
 
 // Depth on the ground: a larger floor line is nearer the viewer and drawn in front.
-// Things dropped from the air land on FALL_FLOOR, just in front of the puddles.
-export const FALL_FLOOR = GROUND_Y + 50;
+// Things dropped from the air land on FALL_FLOOR, just in front of the puddles
+// (whose front edge is at about GROUND_Y + 79).
+export const FALL_FLOOR = GROUND_Y + 88;
 export const FRONT_FLOOR = WORLD_H - 14;
 /** Letting go with the bottom at least this low counts as putting it on the ground. */
 export const GROUND_BAND = GROUND_Y - 24;

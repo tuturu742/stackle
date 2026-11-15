@@ -1,4 +1,5 @@
 import { palette } from '../config';
+import { mix } from '../color';
 
 export type FruitKind = 'apple' | 'pear' | 'plum';
 
@@ -14,6 +15,10 @@ export const FRUIT: Record<FruitKind, FruitLook> = {
   plum: { radius: 28, color: '#a07ac4', shine: '#c8b0e0' },
 };
 
+const UNRIPE = '#9ccc65';
+const UNRIPE_SHINE = '#cfe8a8';
+
+
 export function drawFruit(
   ctx: CanvasRenderingContext2D,
   kind: FruitKind,
@@ -23,6 +28,8 @@ export function drawFruit(
   scaleX: number,
   scaleY: number,
   alpha = 1,
+  /** 0 = ripe colour, 1 = fully green. */
+  unripe = 0,
 ): void {
   const look = FRUIT[kind];
   const r = look.radius;
@@ -45,7 +52,7 @@ export function drawFruit(
   ctx.ellipse(r * 0.32, -r * 1.05, r * 0.3, r * 0.14, -0.5, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = look.color;
+  ctx.fillStyle = unripe > 0 ? mix(look.color, UNRIPE, unripe) : look.color;
   ctx.beginPath();
   if (kind === 'pear') {
     ctx.ellipse(0, r * 0.15, r, r * 0.8, 0, 0, Math.PI * 2);
@@ -55,7 +62,7 @@ export function drawFruit(
   }
   ctx.fill();
 
-  ctx.fillStyle = look.shine;
+  ctx.fillStyle = unripe > 0 ? mix(look.shine, UNRIPE_SHINE, unripe) : look.shine;
   ctx.globalAlpha = alpha * 0.7;
   ctx.beginPath();
   ctx.ellipse(-r * 0.4, -r * 0.35, r * 0.22, r * 0.14, -0.6, 0, Math.PI * 2);

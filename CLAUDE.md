@@ -35,7 +35,8 @@ from it out of committed files: the repo is public.
   stacked (in the same towers as fruit) but never disposed of; every item carries a
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
 - Animals make their sound when picked up. Carrying food near an animal's mouth opens it;
-  letting go over the open mouth feeds it (one bite per piece), letting go on its head stacks.
+  letting go over the open mouth feeds it the held piece only (anything stacked on that piece
+  drops to the ground), letting go on its head stacks.
 - The farm is a long scene (`SceneDef.width`, five screens now). Dragging empty ground or sky
   pans; a swipe glides a little (capped), a resting finger stops it. Carrying something to the
   screen edge scrolls the world. Sun, moon and stars stay fixed on screen.

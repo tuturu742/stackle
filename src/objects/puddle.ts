@@ -1,5 +1,8 @@
 import { GROUND_Y, palette } from '../config';
 
+/** Half the puddle's height on screen: tall enough for small hands to hit. */
+export const PUDDLE_RY = 36;
+
 interface Ripple {
   x: number;
   age: number;
@@ -11,11 +14,11 @@ interface Ripple {
  * water drowns with a splash; anything else just stays on the ground around it.
  */
 export class Puddle {
-  readonly surfaceY = GROUND_Y - 4;
-  /** Depth of the water's centre line, for drawing order. */
-  readonly depth = GROUND_Y + 4;
+  /** Depth of the water's centre line, for drawing order. Set a little forward on the ground. */
+  readonly depth = GROUND_Y + 40;
+  readonly surfaceY = this.depth;
   /** Where a drowning tower's bottom rests while it goes under. */
-  readonly drownY = GROUND_Y + 2;
+  readonly drownY = this.depth - 2;
   private ripples: Ripple[] = [];
 
   constructor(
@@ -34,9 +37,11 @@ export class Puddle {
     return Math.max(this.x - reach, Math.min(this.x + reach, x));
   }
 
-  /** Is a bottom edge at this point directly on the water? */
+  /** Is a bottom edge at this point on the water (with a little margin around it)? */
   holds(x: number, bottom: number): boolean {
-    return Math.abs(x - this.x) <= this.width * 0.45 && bottom >= this.depth - 36 && bottom <= this.depth + 16;
+    const dx = (x - this.x) / (this.width / 2);
+    const dy = (bottom - this.depth) / (PUDDLE_RY + 18);
+    return dx * dx + dy * dy <= 1;
   }
 
   ripple(x: number, size: number): void {
@@ -50,8 +55,8 @@ export class Puddle {
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {
     const rx = this.width / 2;
-    const ry = 20;
-    const cy = GROUND_Y + 4;
+    const ry = PUDDLE_RY;
+    const cy = this.depth;
 
     ctx.fillStyle = palette.waterDeep;
     ctx.beginPath();
@@ -71,7 +76,7 @@ export class Puddle {
     ctx.globalAlpha = 0.6;
     const shimmer = Math.sin(time * 1.5) * 8;
     ctx.beginPath();
-    ctx.ellipse(this.x - rx * 0.35 + shimmer, cy - 5, rx * 0.25, 3, 0, 0, Math.PI * 2);
+    ctx.ellipse(this.x - rx * 0.35 + shimmer, cy - ry * 0.4, rx * 0.25, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.strokeStyle = palette.waterLight;
@@ -81,7 +86,7 @@ export class Puddle {
       ctx.globalAlpha = (1 - t) * 0.9;
       const w = 12 + t * rx * (0.6 + 0.2 * r.size);
       ctx.beginPath();
-      ctx.ellipse(r.x, cy, w, w * 0.22, 0, 0, Math.PI * 2);
+      ctx.ellipse(r.x, cy, w, (w * ry) / rx, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
     ctx.restore();

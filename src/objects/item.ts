@@ -67,9 +67,9 @@ export class Item {
     return this.awake <= 0 && this.chew === 0 && !this.wantsFood;
   }
 
-  /** Start eating: one bite per piece of food. */
-  feed(pieces: number): void {
-    this.chew += pieces * BITE;
+  /** Start eating a piece of food. */
+  feed(): void {
+    this.chew += BITE;
     this.mouth = 0;
   }
 

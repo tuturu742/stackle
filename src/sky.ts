@@ -1,5 +1,6 @@
 import { SCREEN_W, palette } from './config';
 import * as audio from './audio';
+import { mix } from './color';
 
 // The sun keeps its place near the top right of the screen as the world scrolls.
 const SUN = { fromRight: 164, y: 130, r: 60 };
@@ -130,13 +131,3 @@ function ease(t: number): number {
   return t * t * (3 - 2 * t);
 }
 
-function mix(a: string, b: string, t: number): string {
-  const pa = parseInt(a.slice(1), 16);
-  const pb = parseInt(b.slice(1), 16);
-  const channel = (shift: number) => {
-    const ca = (pa >> shift) & 255;
-    const cb = (pb >> shift) & 255;
-    return Math.round(ca + (cb - ca) * t);
-  };
-  return `rgb(${channel(16)},${channel(8)},${channel(0)})`;
-}

@@ -7,6 +7,7 @@
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let muted = false;
+let pausedCallback: (() => void) | null = null;
 
 const MASTER_VOLUME = 0.5;
 
@@ -19,6 +20,9 @@ export function unlock(): void {
     master = ctx.createGain();
     master.gain.value = muted ? 0 : MASTER_VOLUME;
     master.connect(limiter).connect(ctx.destination);
+    ctx.addEventListener('statechange', () => {
+      if (ctx?.state !== 'running') pausedCallback?.();
+    });
   }
   if (ctx.state === 'running') return;
   ctx.resume().catch(() => {
@@ -29,6 +33,15 @@ export function unlock(): void {
   blip.buffer = ctx.createBuffer(1, 1, 22050);
   blip.connect(ctx.destination);
   blip.start(0);
+}
+
+export function isRunning(): boolean {
+  return ctx?.state === 'running';
+}
+
+/** Called whenever iOS pauses audio (sleep, another app, a phone call). */
+export function onPaused(callback: () => void): void {
+  pausedCallback = callback;
 }
 
 export function setMuted(value: boolean): void {

@@ -8,7 +8,13 @@ export interface Slot {
   /** 0 = just picked, 1 = ripe and pickable. */
   growth: number;
   wobble: number;
+  /** Seconds since it became ripe, for the pop to full size. */
+  ripeAge: number;
 }
+
+/** Growing fruit stays clearly small; it only reaches full size once it can be picked. */
+const UNRIPE_MAX_SCALE = 0.6;
+const RIPE_POP_SECONDS = 0.3;
 
 // Fruit positions relative to the trunk base, low enough to reach easily.
 const SLOT_OFFSETS = [
@@ -25,7 +31,13 @@ export class Tree {
     readonly x: number,
     readonly fruit: FruitKind,
   ) {
-    this.slots = SLOT_OFFSETS.map(([dx, dy]) => ({ x: x + dx, y: GROUND_Y + dy, growth: 1, wobble: 0 }));
+    this.slots = SLOT_OFFSETS.map(([dx, dy]) => ({
+      x: x + dx,
+      y: GROUND_Y + dy,
+      growth: 1,
+      wobble: 0,
+      ripeAge: RIPE_POP_SECONDS,
+    }));
   }
 
   /** Nearest ripe fruit within reach of the point, if any. */
@@ -43,11 +55,19 @@ export class Tree {
   /** Taking the fruit starts a new one growing in the same place. */
   pick(slot: Slot): void {
     slot.growth = 0;
+    slot.ripeAge = 0;
+  }
+
+  /** Drawn size of the fruit in a slot: small while growing, a pop to full size when ripe. */
+  scaleOf(slot: Slot): number {
+    if (slot.growth < 1) return 0.15 + (UNRIPE_MAX_SCALE - 0.15) * slot.growth;
+    const t = Math.min(1, slot.ripeAge / RIPE_POP_SECONDS);
+    return UNRIPE_MAX_SCALE + (1 - UNRIPE_MAX_SCALE) * easeOutBack(t);
   }
 
   /** Top edge of the fruit hanging in a slot, rising as it grows. */
   fruitTop(slot: Slot): number {
-    return slot.y - FRUIT[this.fruit].radius * 0.9 * easeOutBack(slot.growth);
+    return slot.y - FRUIT[this.fruit].radius * 0.9 * this.scaleOf(slot);
   }
 
   update(dt: number): void {
@@ -56,8 +76,11 @@ export class Tree {
         slot.growth = Math.min(1, slot.growth + dt / REGROW_SECONDS);
         if (slot.growth === 1) {
           slot.wobble = 1;
+          slot.ripeAge = 0;
           audio.grown();
         }
+      } else {
+        slot.ripeAge += dt;
       }
       slot.wobble = Math.max(0, slot.wobble - dt * 2.5);
     }
@@ -89,9 +112,11 @@ export class Tree {
 
     for (const slot of this.slots) {
       if (slot.growth <= 0.02) continue;
-      const g = easeOutBack(slot.growth);
+      const g = this.scaleOf(slot);
       const w = Math.sin(time * 30) * slot.wobble * 0.15;
-      drawFruit(ctx, this.fruit, slot.x, slot.y, 0, g * (1 + w), g * (1 - w));
+      // Unripe fruit is green, turning its own colour only as it ripens.
+      const unripe = slot.growth < 1 ? 1 - slot.growth * 0.4 : 0;
+      drawFruit(ctx, this.fruit, slot.x, slot.y, 0, g * (1 + w), g * (1 - w), 1, unripe);
     }
   }
 }
