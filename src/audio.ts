@@ -184,7 +184,7 @@ function voice(v: Voice): void {
   osc.stop(end + 0.02);
 }
 
-export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat';
+export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat' | 'bunny' | 'raccoon' | 'beaver';
 
 export function animal(kind: AnimalSound): void {
   switch (kind) {
@@ -204,6 +204,16 @@ export function animal(kind: AnimalSound): void {
       for (const delay of [0, 0.2]) {
         voice({ wave: 'square', from: 420, to: 330, duration: 0.14, volume: 0.25, filter: 900, q: 3, delay });
       }
+      break;
+    case 'bunny':
+      for (const delay of [0, 0.12]) voice({ wave: 'triangle', from: 1200, to: 1500, duration: 0.07, volume: 0.18, filter: 1800, q: 2, delay });
+      break;
+    case 'raccoon':
+      for (const delay of [0, 0.09, 0.18, 0.27]) voice({ wave: 'square', from: 700, to: 560, duration: 0.06, volume: 0.14, filter: 1300, q: 3, delay });
+      break;
+    case 'beaver':
+      voice({ wave: 'sawtooth', from: 300, to: 380, duration: 0.18, volume: 0.22, filter: 800, q: 2 });
+      noise(0.08, 400, 0.12, 0.25);
       break;
     case 'cat':
       voice({ wave: 'sawtooth', from: 520, to: 780, duration: 0.22, volume: 0.22, filter: 1400, q: 2.5 });
@@ -339,6 +349,13 @@ export function burp(delay = 0): void {
   tone(180, 110, 0.12, 0.15, delay + 0.05);
 }
 
+/** After a third meal: a happy burp that turns into a sung note. */
+export function burpNote(delay = 0): void {
+  tone(160, 120, 0.18, 0.25, delay);
+  tone(523, 659, 0.12, 0.14, delay + 0.2);
+  tone(784, 784, 0.4, 0.16, delay + 0.32);
+}
+
 /** The barn doors swing. */
 export function creak(opening: boolean): void {
   tone(opening ? 220 : 260, opening ? 300 : 180, 0.25, 0.1);
@@ -380,6 +397,26 @@ export function swoosh(): void {
 export function chirp(): void {
   tone(2200, 2800, 0.05, 0.08);
   tone(2400, 3000, 0.05, 0.08, 0.08);
+}
+
+/** A ladybird takes off. */
+export function buzz(): void {
+  voice({ wave: 'sawtooth', from: 220, to: 260, duration: 0.35, volume: 0.06, filter: 600, q: 1, vibrato: [40, 30] });
+}
+
+/** The owl: a soft hoo-hoo at night, a sleepy murmur by day. */
+export function hoot(awake: boolean): void {
+  if (!awake) {
+    tone(330, 300, 0.4, 0.06);
+    return;
+  }
+  tone(390, 370, 0.3, 0.22);
+  tone(390, 340, 0.55, 0.22, 0.4);
+}
+
+/** A crow flies off. */
+export function caw(): void {
+  for (const delay of [0, 0.22]) voice({ wave: 'sawtooth', from: 520, to: 380, duration: 0.16, volume: 0.16, filter: 900, q: 2.5, delay });
 }
 
 /** A bush is tapped. */
@@ -424,9 +461,9 @@ export function basket(): void {
   tone(600, 900, 0.07, 0.2, 0.06);
 }
 
-/** Bunting flutters. */
-export function flutter(): void {
-  noise(0.3, 4000, 0.03);
+/** A lantern is switched on (a bright little ding) or off (a soft lower one). */
+export function lantern(on: boolean): void {
+  tone(on ? 1175 : 880, on ? 1175 : 780, 0.25, 0.08);
 }
 
 /** A shutter opens or closes. */

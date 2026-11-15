@@ -4,6 +4,8 @@ import { settings } from '../settings';
 import { drawVeg, VEG } from './veg';
 
 const SPACING = 64;
+/** Half the width of a clearing in the corn. */
+const CLEARING = 95;
 /** Rain makes corn grow back this many times faster, like fruit. */
 const RAIN_BOOST = 3;
 
@@ -15,7 +17,7 @@ export interface Cob {
   growth: number;
 }
 
-/** A field of tall corn. Each stalk has a cob to pick, which grows back. */
+/** A field of tall corn. Each stalk has a cob to pick, which grows back. A clearing can be left for a scarecrow. */
 export class CornField {
   /** A backdrop: behind anything standing on the ground. */
   readonly depth = GROUND_Y - 2;
@@ -24,10 +26,13 @@ export class CornField {
   constructor(
     readonly x: number,
     readonly width: number,
+    /** Middle of a stretch left without corn, if any. */
+    clearing?: number,
   ) {
     const n = Math.max(1, Math.floor(width / SPACING));
     for (let i = 0; i < n; i++) {
       const cx = x - width / 2 + (i + 0.5) * (width / n);
+      if (clearing !== undefined && Math.abs(cx - clearing) < CLEARING) continue;
       const stalk = 210 + 40 * Math.sin(i * 1.7) + 20 * Math.cos(i * 0.9);
       this.cobs.push({ x: cx, y: GROUND_Y - stalk * 0.5, stalk, growth: 1 });
     }
@@ -108,10 +113,20 @@ interface Sunflower {
   nodSpeed: number;
 }
 
-/** A field of sunflowers. A tapped flower nods and plays its own soft note. */
+/** Seconds for the ladybird to fly from one flower to another. */
+const FLIGHT_SECONDS = 1.1;
+
+/**
+ * A field of sunflowers. A tapped flower nods and plays its own soft note.
+ * A ladybird sits on one of them; tapped, it flies off to another flower, any one.
+ */
 export class SunflowerField {
   readonly depth = GROUND_Y - 2;
   private readonly flowers: Sunflower[] = [];
+  /** Which flower the ladybird is on (or flying to), and how far through its flight it is: 1 landed. */
+  private bug = 2;
+  private bugFrom = 2;
+  private flight = 1;
 
   constructor(
     readonly x: number,
@@ -128,8 +143,31 @@ export class SunflowerField {
     }
   }
 
-  /** Tap a flower head; returns whether one was hit. */
+  /** Where the ladybird sits on a flower's head. */
+  private bugSpot(i: number): { x: number; y: number } {
+    const f = this.flowers[Math.min(i, this.flowers.length - 1)];
+    return { x: f.x + 8, y: GROUND_Y - f.height - 9 };
+  }
+
+  private get bugAt(): { x: number; y: number } {
+    const a = this.bugSpot(this.bugFrom);
+    const b = this.bugSpot(this.bug);
+    const t = this.flight;
+    // A soft arc up and over.
+    return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - Math.sin(t * Math.PI) * 90 };
+  }
+
+  /** Tap the ladybird or a flower head; returns whether one was hit. */
   tap(px: number, py: number, slop: number): boolean {
+    const bug = this.bugAt;
+    if (this.flight >= 1 && Math.hypot(px - bug.x, py - bug.y) <= 24 + slop) {
+      this.bugFrom = this.bug;
+      // Off to any other flower.
+      this.bug = (this.bug + 1 + Math.floor(Math.random() * (this.flowers.length - 1))) % this.flowers.length;
+      this.flight = 0;
+      audio.buzz();
+      return true;
+    }
     const i = this.flowers.findIndex((f) => Math.hypot(px - f.x, py - (GROUND_Y - f.height)) <= 34 + slop);
     if (i < 0) return false;
     this.flowers[i].nodSpeed += settings.reduceMotion ? 1.5 : 4;
@@ -138,6 +176,7 @@ export class SunflowerField {
   }
 
   update(dt: number): void {
+    this.flight = Math.min(1, this.flight + dt / FLIGHT_SECONDS);
     for (const f of this.flowers) {
       f.nodSpeed += (-40 * f.nod - 3 * f.nodSpeed) * dt;
       f.nod += f.nodSpeed * dt;
@@ -178,6 +217,47 @@ export class SunflowerField {
       ctx.arc(0, 0, 17, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    }
+    this.drawLadybird(ctx);
+  }
+
+  private drawLadybird(ctx: CanvasRenderingContext2D): void {
+    const { x, y } = this.bugAt;
+    const flying = this.flight < 1;
+    if (flying) {
+      // Clear wings flutter while it flies.
+      const flap = Math.abs(Math.sin(this.flight * 60)) * 6;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(x + side * 9, y - 6, 8, 4 + flap * 0.4, side * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#3f3f4a';
+    ctx.beginPath();
+    ctx.arc(x, y - 8, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e8473f';
+    ctx.beginPath();
+    ctx.arc(x, y, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#3f3f4a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 9);
+    ctx.lineTo(x, y + 9);
+    ctx.stroke();
+    ctx.fillStyle = '#3f3f4a';
+    for (const [dx, dy] of [
+      [-4, -3],
+      [4, -3],
+      [-4, 4],
+      [4, 4],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(x + dx, y + dy, 1.8, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }

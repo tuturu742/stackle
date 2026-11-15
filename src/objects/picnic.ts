@@ -2,42 +2,88 @@ import { GROUND_Y } from '../config';
 import { settings } from '../settings';
 import { drawGood, GOODS, TREATS, type TreatKind } from './goods';
 import { isFruit, isVeg, type Item } from './item';
+import { drawLantern, drawLanternGlow, LANTERN_R } from './lantern';
 import type { Perch } from './perch';
 
-const FLAG_COLORS = ['#f28b82', '#f6c26b', '#81c7e8', '#a5d68f', '#b39ddb'];
+const LANTERN_COLORS = ['#f28b82', '#f6c26b', '#81c7e8', '#a5d68f', '#b39ddb'];
+const SAG = 50;
+const STRING_Y = GROUND_Y - 240;
 
-/** The picnic place: a checked blanket on the grass with bunting strung above it. */
+interface StringLantern {
+  lit: boolean;
+  /** Sways after a tap: 1 just tapped. */
+  swing: number;
+}
+
+/**
+ * The picnic place: a checked blanket on the grass with a string of paper
+ * lanterns above it. Each lantern switches on or off with its own tap and
+ * glows at night.
+ */
 export class Picnic {
   /** The blanket lies flat, under anything put on it. */
   readonly depth = GROUND_Y + 0.5;
-  /** The bunting hangs behind everything. */
+  /** The lanterns hang behind everything. */
   readonly backDepth = GROUND_Y - 1;
-  private flutter = 0;
+  private readonly lanterns: StringLantern[];
+  private time = 0;
 
   constructor(
     readonly x: number,
     readonly width: number,
-  ) {}
+  ) {
+    const [a, b] = this.poles;
+    const n = Math.max(4, Math.round((b - a) / 56));
+    this.lanterns = Array.from({ length: n - 1 }, () => ({ lit: true, swing: 0 }));
+  }
 
   private get poles(): [number, number] {
     return [this.x - this.width / 2 - 30, this.x + this.width / 2 + 30];
   }
 
-  /** The string of flags, to flutter when tapped. */
-  hitsBunting(px: number, py: number, slop: number): boolean {
+  /** A point along the sagging string, 0 at one pole to 1 at the other. */
+  private along(t: number): { x: number; y: number } {
     const [a, b] = this.poles;
-    return px >= a && px <= b && py >= GROUND_Y - 260 - slop && py <= GROUND_Y - 170 + slop;
+    return { x: a + (b - a) * t, y: STRING_Y + SAG * 4 * t * (1 - t) };
   }
 
-  tapBunting(): void {
-    this.flutter = 1;
+  /** Where lantern `i` hangs from the string, and its angle as it sways. */
+  private hang(i: number): { x: number; y: number; angle: number } {
+    const p = this.along((i + 1) / (this.lanterns.length + 1));
+    const l = this.lanterns[i];
+    const swing = settings.reduceMotion ? 0.3 : 1;
+    return { ...p, angle: Math.sin(this.time * 7 + i) * l.swing * 0.35 * swing };
+  }
+
+  /** The lantern at this point, if any. */
+  lanternAt(px: number, py: number, slop: number): number | null {
+    let best: number | null = null;
+    let bestDist = Infinity;
+    this.lanterns.forEach((_, i) => {
+      const h = this.hang(i);
+      const d = Math.hypot(px - h.x, py - (h.y + 6 + LANTERN_R));
+      if (d <= LANTERN_R + 10 + slop && d < bestDist) {
+        best = i;
+        bestDist = d;
+      }
+    });
+    return best;
+  }
+
+  /** Switch a lantern on or off; returns whether it is now on. */
+  toggle(i: number): boolean {
+    const l = this.lanterns[i];
+    l.lit = !l.lit;
+    l.swing = 1;
+    return l.lit;
   }
 
   update(dt: number): void {
-    this.flutter = Math.max(0, this.flutter - dt * 0.8);
+    this.time += dt;
+    for (const l of this.lanterns) l.swing = Math.max(0, l.swing - dt * 0.7);
   }
 
-  drawBack(ctx: CanvasRenderingContext2D, time: number): void {
+  drawBack(ctx: CanvasRenderingContext2D): void {
     const [a, b] = this.poles;
     ctx.fillStyle = '#b07d5b';
     for (const px of [a, b]) {
@@ -45,34 +91,28 @@ export class Picnic {
       ctx.roundRect(px - 5, GROUND_Y - 250, 10, 252, 5);
       ctx.fill();
     }
-    const sag = 50;
-    const at = (t: number) => ({ x: a + (b - a) * t, y: GROUND_Y - 240 + sag * 4 * t * (1 - t) });
-    ctx.strokeStyle = '#efe3c8';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#6b5a4e';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     for (let t = 0; t <= 1.001; t += 0.05) {
-      const p = at(t);
+      const p = this.along(t);
       if (t === 0) ctx.moveTo(p.x, p.y);
       else ctx.lineTo(p.x, p.y);
     }
     ctx.stroke();
-    const n = Math.max(4, Math.round((b - a) / 44));
-    const swing = settings.reduceMotion ? 0.3 : 1;
-    for (let i = 1; i < n; i++) {
-      const p = at(i / n);
-      const sway = Math.sin(time * 14 + i) * this.flutter * 0.5 * swing;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(sway);
-      ctx.fillStyle = FLAG_COLORS[i % FLAG_COLORS.length];
-      ctx.beginPath();
-      ctx.moveTo(-12, 0);
-      ctx.lineTo(12, 0);
-      ctx.lineTo(0, 26);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
+    this.lanterns.forEach((l, i) => {
+      const h = this.hang(i);
+      drawLantern(ctx, h.x, h.y, LANTERN_COLORS[i % LANTERN_COLORS.length], l.lit, h.angle);
+    });
+  }
+
+  /** At night the lit lanterns glow over the dark. */
+  drawGlow(ctx: CanvasRenderingContext2D, night: number): void {
+    this.lanterns.forEach((l, i) => {
+      if (!l.lit) return;
+      const h = this.hang(i);
+      drawLanternGlow(ctx, h.x, h.y, LANTERN_COLORS[i % LANTERN_COLORS.length], night, h.angle);
+    });
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -215,7 +255,7 @@ export class Basket {
 /** Seconds on the grill before fruit or a vegetable is a pie. */
 export const BAKE_SECONDS = 3;
 
-/** A round grill on legs. Fruit or a vegetable placed on it bakes into a pie. */
+/** A round grill on legs. Fruit or a vegetable placed on it bakes into a pie, corn pops, flour makes tortillas. */
 export class Grill implements Perch {
   readonly depth = GROUND_Y + 18;
   readonly seatCount = 1;
@@ -237,7 +277,7 @@ export class Grill implements Perch {
   }
 
   accepts(_i: number, bottom: Item): boolean {
-    return isFruit(bottom.kind) || isVeg(bottom.kind) || bottom.kind === 'pie';
+    return isFruit(bottom.kind) || isVeg(bottom.kind) || ['pie', 'flour', 'popcorn', 'tortilla'].includes(bottom.kind);
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {

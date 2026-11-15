@@ -13,6 +13,8 @@ export interface Perch {
   seatTop(i: number): number;
   /** How far either side of the seat's middle a let-go still counts. */
   seatReach(i: number): number;
+  /** Instead of near the seat: does a let-go of a stack with its bottom here (and this tall) count? */
+  catches?(i: number, x: number, bottom: number, height: number): boolean;
   /** Will this seat take a stack with this bottom item right now? */
   accepts?(i: number, bottom: Item): boolean;
   /** Is whatever sits on this seat out of sight and reach (a shut window)? */

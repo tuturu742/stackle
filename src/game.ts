@@ -32,6 +32,9 @@ import { Item, drawLoose, isFruit, isHat, isVeg, sizeOf, type ItemKind, type Loo
 import type { Perch } from './objects/perch';
 import { BAKE_SECONDS, Basket, Grill, Picnic } from './objects/picnic';
 import { Mud, Puddle } from './objects/puddle';
+import { Fireflies } from './objects/fireflies';
+import { Owl } from './objects/owl';
+import { Scarecrow } from './objects/scarecrow';
 import type { Sink } from './objects/sink';
 import { Stable } from './objects/stable';
 import { Stack, type Anchor } from './objects/stack';
@@ -121,6 +124,7 @@ interface TurnHold {
 /** A finger on empty ground or on a structure: a drag pans, a tap is passed on to what is there. */
 interface Pan {
   cssX: number;
+  cssY: number;
   speed: number;
   startX: number;
   startY: number;
@@ -181,6 +185,9 @@ const VEG_CAP = 20;
 const HAY_CAP = 10;
 const TREAT_CAP = 10;
 const EGG_CAP = 6;
+const FLOUR_CAP = 4;
+/** A hen this close to another (world units, sideways) chats with it. */
+const HEN_CHAT_DIST = 200;
 /** Hats, counting the ones the animals start out wearing. */
 const HAT_CAP = 15;
 /** A finger that moves less than this (screen pixels) is a tap. */
@@ -189,6 +196,13 @@ const TAP_SLOP = 14;
 const PADDLE_SPEED: Partial<Record<ItemKind, number>> = { ship: 120, duck: 24 };
 /** Seconds an animal plays an instrument given to it. */
 const PLAY_SECONDS = 2.2;
+/** What the grill makes: corn pops into popcorn, flour makes tortillas, other fruit and vegetables bake into pies. */
+function bakesInto(kind: ItemKind): 'pie' | 'popcorn' | 'tortilla' | null {
+  if (kind === 'corn') return 'popcorn';
+  if (kind === 'flour') return 'tortilla';
+  return isFruit(kind) || isVeg(kind) ? 'pie' : null;
+}
+
 /** Each animal's umbrella. */
 const UMBRELLA_COLORS: Record<AnimalKind, string> = {
   cow: '#e8665c',
@@ -198,9 +212,12 @@ const UMBRELLA_COLORS: Record<AnimalKind, string> = {
   duck: '#f2c14e',
   hen: '#f28b82',
   cat: '#5fa8a0',
+  bunny: '#f3a3c4',
+  raccoon: '#81c7e8',
+  beaver: '#f2a541',
 };
 /** Bigger animals play lower. */
-const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2 };
+const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2, bunny: 1.4, raccoon: 1.1, beaver: 1 };
 
 export class Game {
   private stacks: Stack[] = [];
@@ -224,6 +241,9 @@ export class Game {
   private grills: Grill[] = [];
   private boomboxes: Boombox[] = [];
   private benches: Bench[] = [];
+  private scarecrows: Scarecrow[] = [];
+  private owls: Owl[] = [];
+  private fireflies: Fireflies[] = [];
   private houses: House[] = [];
   private coops: Coop[] = [];
 
@@ -250,6 +270,8 @@ export class Game {
   private notes = new Notes();
   private sky = new Sky();
   private motorOn = false;
+  /** Animals about to answer: a hen clucking back. */
+  private replies: { item: Item; at: number }[] = [];
   private nextSnoreAt = 0;
   private snoreTurn = 0;
   /** Offscreen canvas for the landscape at night. */
@@ -305,7 +327,8 @@ export class Game {
           this.vehicles.push(new Vehicle(def.vehicle, def.x));
           break;
         case 'cornfield':
-          this.cornfields.push(new CornField(def.x, def.width));
+          this.cornfields.push(new CornField(def.x, def.width, def.clearing));
+          this.fireflies.push(new Fireflies(def.x, def.width));
           break;
         case 'sunflowers':
           this.sunfields.push(new SunflowerField(def.x, def.width));
@@ -326,6 +349,15 @@ export class Game {
           break;
         case 'grill':
           this.grills.push(new Grill(def.x));
+          break;
+        case 'scarecrow': {
+          const scarecrow = new Scarecrow(def.x);
+          this.scarecrows.push(scarecrow);
+          this.birds.push(...scarecrow.crows);
+          break;
+        }
+        case 'owl':
+          this.owls.push(new Owl(def.x, def.height));
           break;
         case 'bench':
           this.benches.push(new Bench(def.x));
@@ -352,6 +384,9 @@ export class Game {
       if (def.type === 'animal') {
         const kinds: ItemKind[] = def.hat ? [def.animal, def.hat] : [def.animal];
         this.keepers.push({ kind: def.animal, spawn: () => this.placeAtHome(kinds, def.x, def.depth, def.home, def.seat) });
+      } else if (def.type === 'bush' && def.animal) {
+        const kind = def.animal;
+        this.keepers.push({ kind, spawn: () => this.placeAtHome([kind], def.x, GROUND_Y + 40, 'bush') });
       } else if (def.type === 'toy') {
         this.keepers.push({ kind: def.toy, spawn: () => this.placeAtHome([def.toy], def.x, def.depth, def.home, def.seat) });
       }
@@ -381,7 +416,7 @@ export class Game {
       const puddle = this.puddles.find((p) => Math.abs(this.delta(x, p.x)) < p.width / 2);
       if (puddle) this.settleFloating(stack, puddle);
     } else if (home) {
-      const perches: Perch[] = home === 'coop' ? this.coops : this.houses;
+      const perches: Perch[] = home === 'coop' ? this.coops : home === 'bush' ? this.bushes : this.houses;
       for (const perch of perches) {
         for (let seat = 0; seat < perch.seatCount; seat++) {
           if (Math.abs(this.delta(perch.seatX(seat), x)) > 300 || this.taken({ perch, seat })) continue;
@@ -437,7 +472,11 @@ export class Game {
 
   /** Everywhere a stack can sit and move with; saves refer to them by this order. */
   private get perches(): Perch[] {
-    return [...this.vehicles, ...this.swings, ...this.grills, ...this.coops, ...this.houses, ...this.benches];
+    return [...this.vehicles, ...this.swings, ...this.grills, ...this.coops, ...this.houses, ...this.benches, ...this.bushes, ...this.scarecrows];
+  }
+
+  private get bushes(): Decor[] {
+    return this.decor.filter((d) => d.kind === 'bush');
   }
 
   // --- Saving ------------------------------------------------------------
@@ -668,7 +707,7 @@ export class Game {
     } else {
       // Empty ground, sky or a structure: a drag moves the world, a tap goes to what is there.
       this.camVx = 0;
-      this.pans.set(id, { cssX, speed: 0, startX: cssX, startY: cssY, moved: 0 });
+      this.pans.set(id, { cssX, cssY, speed: 0, startX: cssX, startY: cssY, moved: 0 });
     }
   }
 
@@ -691,6 +730,11 @@ export class Game {
       return;
     }
     for (const house of this.houses) {
+      const lamp = house.lampAt(p.x, p.y, 6);
+      if (lamp !== null) {
+        audio.lantern(house.toggleLamp(lamp));
+        return;
+      }
       if (house.chimneyAt(p.x, p.y, 10)) {
         audio.puff(house.toggleSmoke());
         return;
@@ -707,13 +751,17 @@ export class Game {
       if (house.isOpen[w]) this.greet(house, w);
       return;
     }
+    const owl = this.owls.find((o) => o.hits(p.x, p.y, 10));
+    if (owl) return audio.hoot(owl.tap(this.sky.night > 0.5));
     const bird = this.birds.find((b) => b.hits(p.x, p.y, GRAB_SLOP));
     if (bird) return bird.scare();
+    const scarecrow = this.scarecrows.find((s) => s.hits(p.x, p.y, 10));
+    if (scarecrow) return scarecrow.tap();
     if (this.sunfields.some((f) => f.tap(p.x, p.y, 10))) return;
-    const picnic = this.picnics.find((pc) => pc.hitsBunting(p.x, p.y, 10));
-    if (picnic) {
-      picnic.tapBunting();
-      audio.flutter();
+    for (const picnic of this.picnics) {
+      const lantern = picnic.lanternAt(p.x, p.y, 8);
+      if (lantern === null) continue;
+      audio.lantern(picnic.toggle(lantern));
       return;
     }
     const windmill = this.windmills.find((w) => w.hits(p.x, p.y, 10));
@@ -722,7 +770,33 @@ export class Game {
       audio.whoosh();
       return;
     }
-    this.decor.find((d) => d.hits(p.x, p.y, 10))?.tap();
+    const puddle = this.puddles.find((pd) => pd.holds(p.x, p.y));
+    if (puddle) {
+      puddle.tap(p.x);
+      audio.plop(0.25);
+      return;
+    }
+    const decor = this.decor.find((d) => d.hits(p.x, p.y, 10));
+    if (!decor) return;
+    if (decor.kind !== 'bush') return decor.tap();
+    // A few shakes of a bush bring out whatever hides in it.
+    const hiding = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === decor);
+    if (decor.shake() && hiding) this.comeOut(hiding, decor);
+  }
+
+  /** An animal hops out of its bush, toward the middle of the screen. */
+  private comeOut(stack: Stack, bush: Decor): void {
+    const toward = this.delta(this.camX + this.viewW / 2, bush.x) >= 0 ? 1 : -1;
+    stack.anchor = null;
+    stack.state = 'falling';
+    stack.x = this.wrap(bush.x + toward * 20);
+    stack.bottom = GROUND_Y - 30;
+    stack.vx = toward * 130;
+    stack.vy = -420;
+    stack.fixedFloor = GROUND_Y + 40;
+    for (const item of stack.items) item.wake();
+    const animal = stack.items.find((i) => i.animal)?.animal;
+    if (animal) audio.animal(animal);
   }
 
   /** Opening a window or door: an animal waiting behind it says hello. */
@@ -735,14 +809,15 @@ export class Game {
   }
 
   /** How many of each thing that comes back are out in the world (carried, stacked or lying about). */
-  private countOut(): { fruit: Map<string, number>; veg: number; hay: number; hats: number; treats: number; eggs: number } {
-    const out = { fruit: new Map<string, number>(), veg: 0, hay: 0, hats: 0, treats: 0, eggs: 0 };
+  private countOut(): { fruit: Map<string, number>; veg: number; hay: number; hats: number; treats: number; eggs: number; flour: number } {
+    const out = { fruit: new Map<string, number>(), veg: 0, hay: 0, hats: 0, treats: 0, eggs: 0, flour: 0 };
     for (const stack of this.stacks) {
       for (const { kind } of stack.items) {
         if (isFruit(kind)) out.fruit.set(kind, (out.fruit.get(kind) ?? 0) + 1);
         else if (isVeg(kind)) out.veg++;
         else if (kind === 'hay') out.hay++;
         else if (kind === 'egg') out.eggs++;
+        else if (kind === 'flour') out.flour++;
         else if (isHat(kind)) out.hats++;
         else if ((TREATS as string[]).includes(kind)) out.treats++;
       }
@@ -808,6 +883,7 @@ export class Game {
     const pan = this.pans.get(id);
     if (pan) {
       pan.moved = Math.max(pan.moved, Math.hypot(cssX - pan.startX, cssY - pan.startY));
+      pan.cssY = cssY;
       const dx = (cssX - pan.cssX) / this.scale;
       pan.cssX = cssX;
       this.setCamera(this.camX - dx);
@@ -1101,7 +1177,10 @@ export class Game {
         if (this.taken({ perch, seat }) || perch.accepts?.(seat, bottom) === false) continue;
         const dx = Math.abs(this.delta(stack.x, perch.seatX(seat)));
         const dy = Math.abs(stack.bottom - perch.seatTop(seat));
-        if (dx <= perch.seatReach(seat) && dy <= Math.max(24, bottom.height * 0.5)) {
+        const near = perch.catches
+          ? perch.catches(seat, perch.seatX(seat) + this.delta(stack.x, perch.seatX(seat)), stack.bottom, stack.height)
+          : dx <= perch.seatReach(seat) && dy <= Math.max(24, bottom.height * 0.5);
+        if (near) {
           perch.seated?.(seat, stack.vx);
           return { perch, seat };
         }
@@ -1134,6 +1213,24 @@ export class Game {
     audio.plop(0.4);
     this.limitHeight(stack);
     this.playIfGiven(stack);
+    this.chat(stack);
+  }
+
+  /** A hen put down near another hen clucks, and the other clucks back. */
+  private chat(stack: Stack): void {
+    const hen = stack.items.find((i) => i.kind === 'hen');
+    if (!hen || this.hidden(stack)) return;
+    for (const other of this.stacks) {
+      if (other === stack || other.state === 'held' || other.state === 'falling' || this.hidden(other)) continue;
+      const friend = other.items.find((i) => i.kind === 'hen');
+      if (!friend || Math.abs(this.delta(other.x, stack.x)) > HEN_CHAT_DIST) continue;
+      hen.happy = 0.8;
+      hen.wake();
+      friend.wake();
+      audio.animal('hen');
+      this.replies.push({ item: friend, at: this.time + 0.55 });
+      return;
+    }
   }
 
   /** An instrument sitting straight on an animal: the animal plays it. */
@@ -1254,6 +1351,13 @@ export class Game {
       stack.update(dt);
     }
     this.runMotor();
+    for (const reply of this.replies) {
+      if (this.time < reply.at) continue;
+      reply.item.happy = 0.8;
+      reply.item.squash = 0.15;
+      audio.animal('hen');
+    }
+    this.replies = this.replies.filter((r) => this.time < r.at);
     this.layEggs();
     this.bake(dt);
     this.playMusic();
@@ -1264,15 +1368,23 @@ export class Game {
     for (const thing of [
       ...this.bins,
       ...this.swings,
-      ...this.windmills,
       ...this.dispensers,
       ...this.sunfields,
       ...this.decor,
       ...this.picnics,
       ...this.boomboxes,
+      ...this.scarecrows,
+      ...this.owls,
     ])
       thing.update(dt);
     for (const house of this.houses) house.update(dt, settings.reduceMotion);
+    for (const windmill of this.windmills) if (windmill.update(dt)) this.mill(windmill);
+    // Fingers held down (on the ground or carrying something) call the fireflies at night.
+    const fingers = [...this.pans.values(), ...this.holds.values()].map((f) => this.toWorld(f.cssX, f.cssY));
+    for (const flies of this.fireflies) {
+      const near = fingers.map((f) => ({ x: flies.x + this.delta(f.x, flies.x), y: f.y }));
+      flies.update(dt, near, this.sky.night);
+    }
     for (const bird of this.birds) bird.update(dt, this.onScreen(bird.x, 60));
     for (const v of this.vanishing) v.age += dt;
     this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
@@ -1322,19 +1434,37 @@ export class Game {
     }
   }
 
+  /** Spun really fast, the windmill puffs a sack of flour out of its door, unless enough is out. */
+  private mill(windmill: Windmill): void {
+    const { x, bottom } = windmill.door;
+    this.splash(x, bottom - 20, 0.6, '#f7f3ea');
+    if (this.countOut().flour >= FLOUR_CAP) return audio.puff(false);
+    const sack = new Stack([new Item('flour')], x, bottom);
+    sack.vx = 110;
+    sack.vy = -260;
+    this.stacks.push(sack);
+    audio.puff(true);
+  }
+
   /** Fruit or a vegetable on the grill bakes into a pie. */
   private bake(dt: number): void {
     for (const grill of this.grills) {
       const stack = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === grill);
-      const raw = stack && (isFruit(stack.items[0].kind) || isVeg(stack.items[0].kind));
-      if (!stack || !raw) {
+      const baked = stack && bakesInto(stack.items[0].kind);
+      if (!stack || !baked) {
         grill.baking = 0;
         continue;
       }
       if (grill.baking === 0) audio.sizzle();
+      const before = grill.baking;
       grill.baking += dt;
+      // Corn starts popping before it is done.
+      if (baked === 'popcorn' && grill.baking > 1.2 && Math.floor(grill.baking / 0.3) > Math.floor(before / 0.3)) {
+        this.splash(stack.x + (Math.random() - 0.5) * 20, stack.bottom - 20, 0.15, '#fbf3df');
+        audio.pop();
+      }
       if (grill.baking < BAKE_SECONDS) continue;
-      stack.items[0] = new Item('pie');
+      stack.items[0] = new Item(baked);
       stack.items[0].squash = 0.3;
       grill.baking = 0;
       audio.ding();
@@ -1347,7 +1477,9 @@ export class Game {
     if (Math.floor(this.time / every) === Math.floor((this.time - STEP) / every)) return;
     for (const stack of this.stacks) {
       if (this.hidden(stack)) continue;
-      for (const s of stack.shown()) if (s.item.playing > 0) this.notes.add(s.x + s.item.radius * 0.6, s.y - s.item.height / 2);
+      for (const s of stack.shown()) {
+        if (s.item.playing > 0 || s.item.dance > 0) this.notes.add(s.x + s.item.radius * 0.6, s.y - s.item.height / 2);
+      }
     }
     for (const box of this.boomboxes) if (box.song) this.notes.add(box.x + (Math.random() - 0.5) * 60, box.depth - 80);
   }
@@ -1477,6 +1609,7 @@ export class Game {
     stack.state = 'resting';
     this.limitHeight(stack);
     if (!stack.drowningIn) this.playIfGiven(stack);
+    this.chat(stack);
   }
 
   /** A tower goes under (or into the bin) one item at a time, bottom first; the rest drops in after it. */
@@ -1675,9 +1808,11 @@ export class Game {
       ...this.cornfields.map((f) => at(f.depth, f.x, f.width / 2 + 60, () => f.draw(ctx))),
       ...this.sunfields.map((f) => at(f.depth, f.x, f.width / 2 + 60, () => f.draw(ctx))),
       ...this.decor.map((d) => at(d.depth, d.x, 100, () => d.draw(ctx, t))),
+      ...this.scarecrows.map((s) => at(s.depth, s.x, 120, () => s.draw(ctx, t))),
+      ...this.owls.map((o) => at(o.depth, o.x, 60, () => o.draw(ctx, this.sky.night))),
       ...this.birds.map((b) => at(b.depth, b.x, 1200, () => b.draw(ctx))),
       ...this.picnics.flatMap((p) => [
-        at(p.backDepth, p.x, p.width / 2 + 80, () => p.drawBack(ctx, t)),
+        at(p.backDepth, p.x, p.width / 2 + 80, () => p.drawBack(ctx)),
         at(p.depth, p.x, p.width / 2 + 80, () => p.draw(ctx)),
       ]),
       ...this.puddles.map((p) => at(p.depth, p.x, p.width / 2, () => p.draw(ctx, t))),
@@ -1757,6 +1892,18 @@ export class Game {
       this.sky.washLandscape(ctx);
       screen.setTransform(1, 0, 0, 1, 0, 0);
       screen.drawImage(ctx.canvas, 0, 0);
+      // Fireflies, the owl's eyes and the moon on the water shine over the dark.
+      screen.setTransform(k, 0, 0, k, -this.camX * k, -this.camY * k);
+      for (const shift of shifts) {
+        screen.save();
+        screen.translate(shift, 0);
+        for (const flies of this.fireflies) flies.draw(screen, this.sky.night);
+        for (const owl of this.owls) owl.drawGlow(screen, this.sky.night);
+        for (const picnic of this.picnics) picnic.drawGlow(screen, this.sky.night);
+        for (const house of this.houses) house.drawGlow(screen, this.sky.night);
+        for (const puddle of this.puddles) puddle.drawMoon(screen, this.time, this.sky.night);
+        screen.restore();
+      }
     }
   }
 

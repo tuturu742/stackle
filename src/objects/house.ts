@@ -1,4 +1,5 @@
 import { GROUND_Y } from '../config';
+import { drawLantern, drawLanternGlow, LANTERN_R } from './lantern';
 import type { Perch } from './perch';
 
 const WIDTH = 420;
@@ -10,7 +11,8 @@ const WIN_W = 100;
 const WIN_H = 92;
 /** Window tops: downstairs, then upstairs. */
 const WIN_TOPS = [GROUND_Y - 176, GROUND_Y - 346];
-const WIN_DX = 130;
+/** How far the windows are from the middle: downstairs a little further, to leave room by the door. */
+const WIN_DX = [146, 130];
 const DOOR_W = 96;
 const DOOR_H = 150;
 const CHIMNEY_X = 90;
@@ -19,6 +21,9 @@ const CHIMNEY_TOP = ROOF_TOP - 6;
 /** Seconds between puffs of smoke, and how long each lasts. */
 const PUFF_EVERY = 0.45;
 const PUFF_SECONDS = 4;
+/** Two lanterns hang over the door from the trim between the floors, this far either side. */
+const LAMP_DX = 26;
+const LAMP_COLOR = '#f2c14e';
 /** The doorway is the fifth seat, after the four windows. */
 const DOOR_SEAT = 4;
 
@@ -46,6 +51,8 @@ export class House implements Perch {
   /** The door: 0 shut, 1 open. */
   private door = 0;
   smoking = false;
+  /** The two lanterns by the door, left and right. */
+  readonly lamps = [true, true];
   private puffs: Puff[] = [];
   private sincePuff = 0;
   /** Shutters, per window: 0 shut, 1 open. */
@@ -67,7 +74,8 @@ export class House implements Perch {
   }
 
   private winX(i: number): number {
-    return this.x + (i % 2 === 0 ? -WIN_DX : WIN_DX);
+    const dx = WIN_DX[i < 2 ? 0 : 1];
+    return this.x + (i % 2 === 0 ? -dx : dx);
   }
 
   private winTop(i: number): number {
@@ -115,6 +123,32 @@ export class House implements Perch {
   toggleDoor(): boolean {
     this.doorOpen = !this.doorOpen;
     return this.doorOpen;
+  }
+
+  private get lampY(): number {
+    return FLOOR_Y + 12;
+  }
+
+  /** The lantern by the door at this point, if any. */
+  lampAt(px: number, py: number, slop: number): number | null {
+    for (const i of [0, 1]) {
+      const lx = this.x + (i ? LAMP_DX : -LAMP_DX);
+      if (Math.hypot(px - lx, py - (this.lampY + 6 + LANTERN_R)) <= LANTERN_R + 10 + slop) return i;
+    }
+    return null;
+  }
+
+  /** Returns whether it is now on. */
+  toggleLamp(i: number): boolean {
+    this.lamps[i] = !this.lamps[i];
+    return this.lamps[i];
+  }
+
+  /** At night the lit lanterns glow over the dark. */
+  drawGlow(ctx: CanvasRenderingContext2D, night: number): void {
+    this.lamps.forEach((lit, i) => {
+      if (lit) drawLanternGlow(ctx, this.x + (i ? LAMP_DX : -LAMP_DX), this.lampY, LAMP_COLOR, night);
+    });
   }
 
   chimneyAt(px: number, py: number, slop: number): boolean {
@@ -234,6 +268,8 @@ export class House implements Perch {
     ctx.strokeRect(this.x - DOOR_W / 2, this.doorTop, DOOR_W, DOOR_H + 4);
     ctx.fillStyle = '#e8d3a6';
     ctx.fillRect(this.x - DOOR_W / 2 - 14, ground - 8, DOOR_W + 28, 10);
+    // Two lanterns hanging over the door.
+    this.lamps.forEach((lit, i) => drawLantern(ctx, this.x + (i ? LAMP_DX : -LAMP_DX), this.lampY, LAMP_COLOR, lit));
     // Window frames and sills.
     for (const i of this.windows) {
       const wx = this.winX(i);

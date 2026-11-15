@@ -1,9 +1,9 @@
 // Things that are neither fruit, vegetables, hats nor animals: hay from the
-// barn, treats from the picnic basket, pies from the grill, eggs from the coop
-// (all food), and toys that are kept forever: the model ship and instruments.
+// barn, treats from the picnic basket, pies, popcorn and tortillas from the
+// grill, eggs from the coop, flour from the windmill (all food), and toys that are kept forever: the model ship and instruments.
 
 export type TreatKind = 'cake' | 'corndog' | 'sandwich' | 'cookie';
-export type GoodFoodKind = 'hay' | 'pie' | 'egg' | TreatKind;
+export type GoodFoodKind = 'hay' | 'pie' | 'egg' | 'popcorn' | 'flour' | 'tortilla' | TreatKind;
 export type InstrumentKind = 'drum' | 'guitar' | 'trumpet';
 export type ToyKind = 'ship' | InstrumentKind;
 export type GoodKind = GoodFoodKind | ToyKind;
@@ -21,6 +21,9 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   hay: { radius: 34, height: 36, food: true },
   pie: { radius: 36, height: 26, food: true },
   egg: { radius: 16, height: 40, food: true },
+  popcorn: { radius: 28, height: 44, food: true },
+  flour: { radius: 26, height: 46, food: true },
+  tortilla: { radius: 36, height: 14, food: true },
   cake: { radius: 30, height: 40, food: true },
   corndog: { radius: 14, height: 66, food: true },
   sandwich: { radius: 32, height: 30, food: true },
@@ -99,6 +102,58 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
       [-4, -12, 4, -4],
       [12, -11, 20, -5],
     ]);
+  },
+  popcorn(ctx) {
+    // A striped tub heaped with popcorn.
+    fill(ctx, '#fbf3df', () => {
+      for (const [dx, dy, r] of [
+        [-16, -10, 10],
+        [0, -16, 12],
+        [15, -10, 10],
+        [-7, -4, 9],
+        [8, -4, 9],
+      ]) {
+        ctx.moveTo(dx + r, dy);
+        ctx.arc(dx, dy, r, 0, Math.PI * 2);
+      }
+    });
+    fill(ctx, '#f6e2a8', () => ctx.arc(4, -18, 4, 0, Math.PI * 2));
+    fill(ctx, '#f7f3ea', () => {
+      ctx.moveTo(-24, -2);
+      ctx.lineTo(24, -2);
+      ctx.lineTo(18, 22);
+      ctx.lineTo(-18, 22);
+      ctx.closePath();
+    });
+    for (const dx of [-14, 0, 14]) fill(ctx, '#e8665c', () => ctx.rect(dx - 3.5 - dx * 0.12, -2, 7, 24));
+  },
+  flour(ctx) {
+    // A tied sack with a wheat ear on it.
+    fill(ctx, '#efe6d2', () => {
+      ctx.moveTo(-12, -18);
+      ctx.quadraticCurveTo(-28, 0, -24, 18);
+      ctx.quadraticCurveTo(0, 26, 24, 18);
+      ctx.quadraticCurveTo(28, 0, 12, -18);
+      ctx.closePath();
+    });
+    fill(ctx, '#e3d7bd', () => ctx.ellipse(0, -21, 12, 5, 0, 0, Math.PI * 2));
+    fill(ctx, '#c9a26b', () => ctx.roundRect(-13, -17, 26, 5, 2));
+    lines(ctx, '#d9a64e', 3, [[0, 14, 0, -4]]);
+    for (const dy of [-2, 4, 10]) {
+      fill(ctx, '#e8b85a', () => ctx.ellipse(-5, dy, 5, 3, 0.6, 0, Math.PI * 2));
+      fill(ctx, '#e8b85a', () => ctx.ellipse(5, dy, 5, 3, -0.6, 0, Math.PI * 2));
+    }
+  },
+  tortilla(ctx) {
+    fill(ctx, '#e6c88f', () => ctx.ellipse(0, 2, 36, 9, 0, 0, Math.PI * 2));
+    fill(ctx, '#f2dcaa', () => ctx.ellipse(0, -1, 34, 7, 0, 0, Math.PI * 2));
+    for (const [dx, dy] of [
+      [-16, -1],
+      [6, -3],
+      [18, 1],
+      [-4, 2],
+    ])
+      fill(ctx, '#d4a865', () => ctx.ellipse(dx, dy, 3, 1.5, 0, 0, Math.PI * 2));
   },
   egg(ctx) {
     fill(ctx, '#fbf6ec', () => {

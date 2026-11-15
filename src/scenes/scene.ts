@@ -29,11 +29,17 @@ export type ObjectDef =
   /** The hat machine. */
   | { type: 'dispenser'; x: number }
   | { type: 'vehicle'; x: number; vehicle: VehicleKind }
-  | { type: 'cornfield'; x: number; width: number }
+  /** `clearing`: the middle of a stretch left without corn (where the scarecrow stands). */
+  | { type: 'cornfield'; x: number; width: number; clearing?: number }
+  /** Stands in the corn with crows on its arms; wears any hat put on its head. */
+  | { type: 'scarecrow'; x: number }
   | { type: 'sunflowers'; x: number; width: number }
-  /** Scenery in front of the fence; `seed` varies its look. */
-  | { type: 'bush' | 'rock' | 'flowers'; x: number; seed: number }
+  /** Scenery in front of the fence; `seed` varies its look. A bush can start with an animal hiding in it. */
+  | { type: 'bush'; x: number; seed: number; animal?: AnimalKind }
+  | { type: 'rock' | 'flowers'; x: number; seed: number }
   | { type: 'bird'; x: number; color: string }
+  /** An owl in a hollow, `height` above the ground (put it in a tree's crown). */
+  | { type: 'owl'; x: number; height: number }
   /** A picnic blanket with bunting above it. */
   | { type: 'picnic'; x: number; width: number }
   | { type: 'basket'; x: number }
@@ -47,7 +53,7 @@ export type ObjectDef =
   | { type: 'bench'; x: number }
   | { type: 'mud'; x: number; width: number };
 
-export type Home = 'pond' | 'coop' | 'house';
+export type Home = 'pond' | 'coop' | 'house' | 'bush';
 // With a `home` of coop or house, `seat` picks the seat (house: windows 0-3, the doorway 4), shut or not.
 
 export interface SceneDef {

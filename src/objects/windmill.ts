@@ -5,10 +5,15 @@ const HUB_Y = GROUND_Y - 300;
 const BLADE = 170;
 const MAX_SPIN = 9;
 const BREEZE = 0.3;
+/** Spinning this fast (a share of the top speed) for this long puffs out a sack of flour. */
+const FAST = 0.6;
+const FAST_SECONDS = 1.5;
 
 /**
  * A windmill. Its sails can be turned round with a finger and flicked to spin;
- * a tap gives them a push. They slowly come back to a gentle breeze.
+ * a tap gives them a push. They slowly come back to a gentle breeze. Kept
+ * spinning really fast for a while, it puffs a sack of flour out of its door,
+ * once, until it slows down again.
  */
 export class Windmill {
   readonly depth = GROUND_Y - 1;
@@ -16,6 +21,9 @@ export class Windmill {
   private spin = BREEZE;
   /** While a finger turns the sails: the finger's angle around the hub last step. */
   private held: number | null = null;
+  /** How long it has been spinning fast, and whether it may give flour (again). */
+  private fast = 0;
+  private armed = true;
 
   constructor(readonly x: number) {}
 
@@ -57,11 +65,25 @@ export class Windmill {
     this.spin = Math.max(-this.maxSpin, Math.min(this.maxSpin, this.spin));
   }
 
-  update(dt: number): void {
-    if (this.held !== null) return;
-    // A gentle breeze always keeps it turning a little.
-    this.spin = BREEZE + (this.spin - BREEZE) * Math.exp(-0.35 * dt);
-    this.angle += this.spin * dt;
+  /** Where a sack of flour comes out. */
+  get door(): { x: number; bottom: number } {
+    return { x: this.x, bottom: this.depth - 4 };
+  }
+
+  /** Returns true when it puffs out flour. */
+  update(dt: number): boolean {
+    if (this.held === null) {
+      // A gentle breeze always keeps it turning a little.
+      this.spin = BREEZE + (this.spin - BREEZE) * Math.exp(-0.35 * dt);
+      this.angle += this.spin * dt;
+    }
+    const speed = Math.abs(this.spin);
+    this.fast = speed >= this.maxSpin * FAST ? this.fast + dt : 0;
+    if (speed < this.maxSpin * 0.25) this.armed = true;
+    if (!this.armed || this.fast < FAST_SECONDS) return false;
+    this.armed = false;
+    this.fast = 0;
+    return true;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -79,6 +101,11 @@ export class Windmill {
       const half = 10 + 36 * y;
       ctx.fillRect(this.x - half, yy - 4, half * 2, 8);
     }
+    // The door at the bottom, where flour comes out.
+    ctx.fillStyle = '#8d6e5a';
+    ctx.beginPath();
+    ctx.roundRect(this.x - 15, this.depth - 46, 30, 46, [15, 15, 0, 0]);
+    ctx.fill();
     // Tail vane behind the hub.
     ctx.fillStyle = '#e07a5f';
     ctx.beginPath();

@@ -10,8 +10,9 @@ export const orchard: SceneDef = {
   width: 13 * 1024,
   start: 1024,
   objects: [
-    // Screen 0: the cornfield, where the farm loops round to the sunflowers.
-    { type: 'cornfield', x: 500, width: 800 },
+    // Screen 0: the cornfield with its scarecrow, where the farm loops round to the sunflowers.
+    { type: 'cornfield', x: 500, width: 800, clearing: 520 },
+    { type: 'scarecrow', x: 520 },
     { type: 'bird', x: 160, color: '#e9a23b' },
     { type: 'rock', x: 960, seed: 1 },
 
@@ -20,6 +21,7 @@ export const orchard: SceneDef = {
     { type: 'tree', x: 1314, fruit: 'apple' },
     { type: 'animal', x: 1494, animal: 'hen', depth: GROUND_Y + 50 },
     { type: 'puddle', x: 1770, width: 430 },
+    { type: 'bush', x: 2080, seed: 2, animal: 'bunny' },
 
     // Screen 2: the first vegetable garden under its cloud, then the picnic right by it, so fruit
     // and vegetables are close to the grill: the cow and the sheep on the blanket with the
@@ -41,8 +43,9 @@ export const orchard: SceneDef = {
     { type: 'stable', x: 3894 },
     { type: 'animal', x: 3894, animal: 'horse', depth: GROUND_Y + 30, hat: 'cap' },
 
-    // Screen 4: the pear tree and the hen house, with a hen sitting in it.
+    // Screen 4: the pear tree with an owl asleep in it, and the hen house, with a hen sitting in it.
     { type: 'tree', x: 4354, fruit: 'pear' },
+    { type: 'owl', x: 4394, height: 420 },
     { type: 'flowers', x: 4600, seed: 3 },
     { type: 'coop', x: 4850 },
     { type: 'animal', x: 4850, animal: 'hen', depth: GROUND_Y + 40, home: 'coop' },
@@ -53,7 +56,7 @@ export const orchard: SceneDef = {
     { type: 'animal', x: 5290, animal: 'pig', depth: GROUND_Y + 65, hat: 'party', home: 'pond' },
     { type: 'puddle', x: 5680, width: 440 },
     { type: 'animal', x: 5600, animal: 'duck', depth: GROUND_Y + 40, home: 'pond' },
-    { type: 'bush', x: 6060, seed: 5 },
+    { type: 'bush', x: 6060, seed: 5, animal: 'beaver' },
 
     // Screen 6: the swing and a bin.
     { type: 'swing', x: 6420 },
@@ -81,7 +84,7 @@ export const orchard: SceneDef = {
     // Screen 10: the windmill and a little puddle.
     { type: 'windmill', x: 10536 },
     { type: 'puddle', x: 10976, width: 280 },
-    { type: 'bush', x: 11206, seed: 7 },
+    { type: 'bush', x: 11206, seed: 7, animal: 'raccoon' },
 
     // Screen 11: a second garden with its own cloud, and a last bin.
     { type: 'bed', x: 11626, width: 300, veg: ['tomato', 'cabbage', 'tomato'] },

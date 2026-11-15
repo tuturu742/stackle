@@ -1,7 +1,7 @@
 // Farm animals, drawn front-on from rounded shapes. Faces stay simple: two dot
 // eyes and a smile, a mouth that opens for food, and closed happy eyes.
 
-export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat';
+export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat' | 'bunny' | 'raccoon' | 'beaver';
 
 interface AnimalLook {
   /** Half the width. */
@@ -19,6 +19,9 @@ export const ANIMAL: Record<AnimalKind, AnimalLook> = {
   horse: { radius: 54, height: 124, mouthY: 12 },
   duck: { radius: 36, height: 62, mouthY: -10 },
   cat: { radius: 40, height: 76, mouthY: -4 },
+  bunny: { radius: 32, height: 74, mouthY: 2 },
+  raccoon: { radius: 40, height: 70, mouthY: 2 },
+  beaver: { radius: 42, height: 74, mouthY: 4 },
 };
 
 export interface Face {
@@ -72,6 +75,9 @@ const EYES: Record<AnimalKind, [number, number]> = {
   horse: [14, -34],
   duck: [9, -24],
   cat: [11, -18],
+  bunny: [10, -10],
+  raccoon: [13, -10],
+  beaver: [12, -14],
 };
 
 function drawEyes(
@@ -373,6 +379,98 @@ const BODY: Record<AnimalKind, (ctx: CanvasRenderingContext2D) => void> = {
         ctx.stroke();
       }
     }
+  },
+
+  bunny(ctx) {
+    // Long ears, a round body and a cotton tail peeking out.
+    blob(ctx, '#f7f3ea', [[26, 26, 9]]);
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#e9e1d6';
+      ctx.beginPath();
+      ctx.ellipse(side * 10, -34, 8, 20, side * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f3c3c3';
+      ctx.beginPath();
+      ctx.ellipse(side * 10, -33, 4, 14, side * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#e9e1d6', [
+      [0, 18, 26],
+      [0, -6, 21],
+    ]);
+    blob(ctx, '#f7f3ea', [
+      [0, 20, 15],
+      [-10, 36, 7],
+      [10, 36, 7],
+    ]);
+    blob(ctx, '#f3a3a3', [[0, -2, 3.5]]);
+  },
+
+  raccoon(ctx) {
+    // Striped tail behind, grey body, a dark mask round the eyes.
+    ctx.save();
+    ctx.translate(30, 18);
+    ctx.rotate(-0.5);
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = i % 2 ? '#4b4f58' : '#a9adb5';
+      ctx.beginPath();
+      ctx.ellipse(0, -i * 10, 10, 7, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+    blob(ctx, '#9da2ab', [
+      [0, 18, 27],
+      [0, -10, 24],
+    ]);
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#9da2ab';
+      ctx.beginPath();
+      ctx.moveTo(side * 22, -20);
+      ctx.lineTo(side * 18, -38);
+      ctx.lineTo(side * 6, -30);
+      ctx.fill();
+    }
+    blob(ctx, '#e9e7e3', [
+      [0, -2, 13],
+      [0, 22, 14],
+    ]);
+    ctx.fillStyle = '#4b4f58';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 12, -10, 10, 7, side * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Light rings so the eyes still show on the mask.
+    ctx.fillStyle = '#e9e7e3';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(side * 13, -10, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#4b4f58', [[0, -4, 3.5]]);
+  },
+
+  beaver(ctx) {
+    // A flat paddle tail behind, brown body, big front teeth.
+    ctx.fillStyle = '#7a5a48';
+    ctx.beginPath();
+    ctx.ellipse(28, 30, 22, 9, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    blob(ctx, '#a8754f', [
+      [0, 18, 28],
+      [0, -10, 24],
+      [-18, -30, 6],
+      [18, -30, 6],
+    ]);
+    blob(ctx, '#c99a72', [
+      [0, 2, 12],
+      [0, 22, 15],
+    ]);
+    blob(ctx, '#5b3a33', [[0, -4, 4]]);
+    ctx.fillStyle = '#f7f3ea';
+    ctx.beginPath();
+    ctx.roundRect(-5, 7, 10, 9, 2);
+    ctx.fill();
   },
 
   duck(ctx) {

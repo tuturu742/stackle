@@ -56,6 +56,9 @@ export function drawLoose(
 }
 
 /** Anything that can be picked up, moved and stacked. Stacks own position and motion. */
+/** Seconds of the happy dance after every third meal. */
+const DANCE_SECONDS = 1.4;
+
 export class Item {
   /** Half the width. */
   readonly radius: number;
@@ -80,6 +83,10 @@ export class Item {
   playing = 0;
   /** True for the one step in which it finished eating. */
   justAte = false;
+  /** Meals eaten: every third one ends in a little dance. */
+  private meals = 0;
+  /** Seconds of dancing left. */
+  dance = 0;
   private awake = 0;
 
   constructor(readonly kind: ItemKind) {
@@ -115,7 +122,7 @@ export class Item {
 
   /** Nothing is keeping it awake, so at night it can sleep. */
   get restful(): boolean {
-    return this.awake <= 0 && this.chew === 0 && !this.wantsFood && this.playing === 0;
+    return this.awake <= 0 && this.chew === 0 && !this.wantsFood && this.playing === 0 && this.dance === 0;
   }
 
   /** Start eating a piece of food. */
@@ -129,6 +136,7 @@ export class Item {
     this.justAte = false;
     if (!this.animal) return;
     this.playing = Math.max(0, this.playing - dt);
+    this.dance = Math.max(0, this.dance - dt);
     if (this.wantsFood) this.wake();
     this.awake = Math.max(0, this.awake - dt);
     this.snore = Math.max(0, this.snore - dt);
@@ -141,7 +149,11 @@ export class Item {
         this.justAte = true;
         this.happy = 1.5;
         this.squash = 0.2;
-        audio.animal(this.animal);
+        if (++this.meals % 3 === 0) {
+          this.dance = DANCE_SECONDS;
+          this.happy = DANCE_SECONDS + 0.5;
+          audio.burpNote(0.1);
+        } else audio.animal(this.animal);
       }
     }
     this.happy = Math.max(0, this.happy - dt);
@@ -178,7 +190,16 @@ export class Item {
     if (this.animal) {
       // Playing music looks happy.
       const face = this.playing > 0 ? { ...this, happy: 1 } : this;
-      drawAnimal(ctx, this.animal, x, y, angle, sx, sy, face);
+      // A dance: a turn right round (the body narrows to its edge and back) with little hops.
+      let turn = 1;
+      let hop = 0;
+      if (this.dance > 0 && !settings.reduceMotion) {
+        const t = 1 - this.dance / DANCE_SECONDS;
+        turn = Math.cos(t * Math.PI * 2);
+        if (Math.abs(turn) < 0.15) turn = Math.sign(turn || 1) * 0.15;
+        hop = Math.abs(Math.sin(t * Math.PI * 3)) * 12;
+      }
+      drawAnimal(ctx, this.animal, x, y - hop, angle, sx * turn, sy, face);
       if (this.muddy > 0.02) this.drawMud(ctx, x, y, angle);
     }
     else drawLoose(ctx, this.kind as LooseKind | ToyKind, x, y, angle, sx, sy);

@@ -25,6 +25,8 @@ export class Puddle implements Sink {
   readonly water: string = palette.water;
   readonly light: string = palette.waterLight;
   private ripples: Ripple[] = [];
+  /** The moon's reflection shivers after a tap: 1 just tapped, fading to 0. */
+  private wobble = 0;
 
   constructor(
     readonly x: number,
@@ -49,13 +51,39 @@ export class Puddle implements Sink {
     return dx * dx + dy * dy <= 1;
   }
 
+  /** A finger taps the water. */
+  tap(x: number): void {
+    this.ripple(x, 0.5);
+    this.wobble = 1;
+  }
+
   ripple(x: number, size: number): void {
     this.ripples.push({ x, age: 0, size });
   }
 
   update(dt: number): void {
+    this.wobble = Math.max(0, this.wobble - dt * 0.7);
     for (const r of this.ripples) r.age += dt;
     this.ripples = this.ripples.filter((r) => r.age < 1.4);
+  }
+
+  /**
+   * The moon on the water, shivering after a tap. Drawn over the darkened
+   * landscape at night, so it shines; `night` from 0 (day) to 1.
+   */
+  drawMoon(ctx: CanvasRenderingContext2D, time: number, night: number): void {
+    if (night <= 0) return;
+    const w = this.wobble;
+    const mx = this.x + (this.width / 2) * 0.2;
+    ctx.fillStyle = '#fbf3d0';
+    ctx.globalAlpha = 0.6 * night;
+    for (let k = 0; k < 4; k++) {
+      const shift = Math.sin(time * 14 + k * 1.7) * 10 * w;
+      ctx.beginPath();
+      ctx.ellipse(mx + shift, this.depth - 9 + k * 5, 22 - k * 3 + w * 4, 2.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {

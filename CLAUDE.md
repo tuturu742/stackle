@@ -38,12 +38,15 @@ from it out of committed files: the repo is public.
   it, taking that item and everything above. Picking a tree fruit or bed vegetable takes the tower on it too.
 - Stack limit: a tower stops at the top of the screen; whatever does not fit breaks off and
   falls beside it as a new stack.
-- The tree does nothing when touched; it only gives fruit.
+- The tree does nothing when touched; it only gives fruit. (The owl in the pear tree is its own
+  thing: asleep by day, a tap only makes it peek with one eye; awake at night with glowing eyes,
+  a tap makes it hoot.)
 - Only things that come back (fruit, vegetables, corn, hay, treats, pies, eggs, hats) are disposable.
   Animals and toys (the model ship, instruments) are keepers: never lost, even across layouts. Animals can be moved and
   stacked (in the same towers as fruit) but never disposed of; every item carries a
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
-- Animals (cow, hen, sheep, pig, horse, duck, cat; some start out wearing a hat) make their sound when
+- Animals (cow, hen, sheep, pig, horse, duck, cat, bunny, raccoon, beaver; some start out
+  wearing a hat) make their sound when
   picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it the held piece only (anything stacked on that piece
   drops to the ground), letting go on its head stacks.
@@ -61,7 +64,7 @@ from it out of committed files: the repo is public.
   whatever sits on their seats; a tap without moving honks; driving through a puddle splashes.
   A swing push always adds to the way it is already moving.
 - Picnic, right between the first garden and the barn so fruit and vegetables are close to the
-  grill: the cow and sheep sit on the blanket. The open basket has the next treat (cake, corndog,
+  grill: the cow and sheep sit on the blanket under a string of paper lanterns. The open basket has the next treat (cake, corndog,
   sandwich, cookie in turn) sitting on top to take; the next one then rises out from inside; fruit or a vegetable on the grill bakes into a pie. An instrument put on an animal makes
   it play a tune (bigger animals lower). The boombox plays song 1, 2, 3, then off, one tap each
   (`audio.playSong`; the loops are stand-ins for real songs).
@@ -70,12 +73,27 @@ from it out of committed files: the repo is public.
 - The farmhouse has two storeys, four windows and a door that open and shut on tap; what sits on
   a shut sill or in a shut doorway is hidden, and an animal waiting there says hello when opened
   (the cat starts behind an upstairs shutter). Tapping the chimney starts smoke, tapping again
-  stops it. A bench for two stands in front. Floating on a puddle, the model ship sails back and forth with a soft motor
+  stops it. Two lanterns hang over the door. A bench for two stands in front.
+- Lanterns (picnic string, farmhouse door) each switch on or off with their own tap; lit ones glow
+  over the dark at night (`src/objects/lantern.ts`). They start lit. Floating on a puddle, the model ship sails back and forth with a soft motor
   (heard only while in sight) and the duck paddles slowly; both face the way they go.
 - A hen fed while sitting in the coop lays an egg, which drops out underneath. The mud puddle
   (`Mud`, a brown `Puddle`) does everything a puddle does; an animal sitting in it gets muddy, and
   floating in clean water or standing in rain washes it.
-- Scenery: a fence all round; bushes rustle, flowers chime, sunflowers nod, bunting flutters;
+- Hidden discoveries, each only in response to the child:
+  - the scarecrow stands in a clearing in the corn and wears any hat put on its head, which sends
+    both crows flying; a tap on the scarecrow only wobbles it, a tap on a crow sends that one off;
+  - bushes are hiding places: the bunny, beaver and raccoon start in one each; three shakes (taps)
+    in a row bring its animal out, and an animal let go with its body anywhere over the leaves
+    goes in, out of sight (`Decor.catches`); one standing on the ground in front stays out;
+  - a ladybird sits on a sunflower and flies to another one, picked at random, when tapped;
+  - tapping a puddle ripples it, and at night the moon's reflection wobbles;
+  - spinning the windmill really fast for a while puffs one sack of flour out of its door (cap 4),
+    again only after it slows down; the grill makes flour into tortillas and corn into popcorn;
+  - fireflies over the cornfield at night gather round a held finger and drift home after;
+  - a hen put down near another hen clucks, and the other clucks back;
+  - every third meal an animal does a little dance turn and burps a sung note.
+- Scenery: a fence all round; bushes rustle, flowers chime, sunflowers nod;
   birds fly off only when touched and come back only out of sight. Backdrop things (stable,
   windmill, fields, scenery) sit just behind `GROUND_Y`, so nothing on the ground hides behind them.
 - The farm is a long scene (`SceneDef.width`, thirteen screens now) that loops round: a
@@ -108,7 +126,7 @@ from it out of committed files: the repo is public.
 - `src/game.ts`: world, motion, grabbing, placing, drowning, depth-sorted drawing
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
 - `src/objects/`: shared objects (items, fruit, vegetables, hats, animals, stacks, tree, bed,
-  goods, cloud, puddle, bin, barn, stable, swing, windmill, hat machine, vehicles, perch, bench, boombox, fields,
+  goods, cloud, puddle, bin, barn, stable, swing, windmill, hat machine, vehicles, perch, bench, boombox, scarecrow, owl, fireflies, fields,
   decor, picnic, house, coop, mud)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - `src/save.ts`: the scene is saved to localStorage (`Game.snapshot`/`Game.restore`) every 2 s

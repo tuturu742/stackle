@@ -1,19 +1,34 @@
 import { GROUND_Y } from '../config';
 import * as audio from '../audio';
 import { settings } from '../settings';
+import type { Item } from './item';
+import type { Perch } from './perch';
 
 export type DecorKind = 'bush' | 'rock' | 'flowers';
 
 /** The fence's top rail, where birds sit. */
 export const FENCE_TOP = GROUND_Y - 46;
 
+/** Shakes in a row that bring an animal out of a bush, and how long a pause forgets them. */
+const SHAKES_TO_COME_OUT = 3;
+const SHAKE_PAUSE = 2;
+/** How far either side of a bush's middle a let-go puts an animal into it. */
+const BUSH_REACH = 85;
+
 const FLOWER_COLORS = ['#f28b82', '#f6c26b', '#b39ddb', '#f7f3ea', '#81c7e8'];
 
-/** Scenery along the farm. Bushes rustle and flowers wiggle with a note when tapped. */
-export class Decor {
+/**
+ * Scenery along the farm. Bushes rustle and flowers wiggle with a note when
+ * tapped. A bush is also a hiding place for one animal: let go anywhere over
+ * the bush it goes in out of sight, and a few shakes bring it out again.
+ */
+export class Decor implements Perch {
   /** Behind anything standing on the ground. */
   readonly depth = GROUND_Y - 1;
   private wiggle = 0;
+  /** Shakes in a row, and seconds since the last; they are forgotten after a pause. */
+  private shakes = 0;
+  private sinceShake = 0;
 
   constructor(
     readonly kind: DecorKind,
@@ -21,6 +36,54 @@ export class Decor {
     /** Which flower colours and note: a fixed number, so each patch stays the same. */
     private readonly seed = 0,
   ) {}
+
+  get seatCount(): number {
+    return this.kind === 'bush' ? 1 : 0;
+  }
+
+  seatX(): number {
+    return this.x;
+  }
+
+  seatTop(): number {
+    return GROUND_Y - 52;
+  }
+
+  seatReach(): number {
+    return 60;
+  }
+
+  accepts(_i: number, bottom: Item): boolean {
+    return !!bottom.animal;
+  }
+
+  /**
+   * Its body anywhere over the leaves. Let go standing on the ground in front
+   * of the bush, it stays out there.
+   */
+  catches(_i: number, x: number, bottom: number, height: number): boolean {
+    const middle = bottom - Math.min(height, 90) / 2;
+    return Math.abs(x - this.x) <= BUSH_REACH && middle >= GROUND_Y - 130 && middle <= GROUND_Y - 12 && bottom <= GROUND_Y + 8;
+  }
+
+  /** A shake; returns true on the shake that is enough to bring out what hides inside. */
+  shake(): boolean {
+    this.tap();
+    this.shakes = this.sinceShake < SHAKE_PAUSE ? this.shakes + 1 : 1;
+    this.sinceShake = 0;
+    if (this.shakes < SHAKES_TO_COME_OUT) return false;
+    this.shakes = 0;
+    return true;
+  }
+
+  hides(): boolean {
+    return true;
+  }
+
+  /** Something going in rustles the leaves. */
+  seated(): void {
+    this.tap();
+  }
 
   hits(px: number, py: number, slop: number): boolean {
     if (this.kind === 'rock') return false;
@@ -37,6 +100,7 @@ export class Decor {
 
   update(dt: number): void {
     this.wiggle = Math.max(0, this.wiggle - dt * 1.5);
+    this.sinceShake += dt;
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {
@@ -119,21 +183,26 @@ export class Bird {
   constructor(
     readonly x: number,
     private readonly color: string,
+    /** Where it sits: on the fence unless told otherwise (a crow on the scarecrow). */
+    private readonly perchY = FENCE_TOP - 14,
+    private readonly voice: 'chirp' | 'caw' = 'chirp',
   ) {
     this.dir = Math.round(x / 100) % 2 ? 1 : -1;
   }
 
   hits(px: number, py: number, slop: number): boolean {
-    return this.state === 'perched' && Math.hypot(px - this.x, py - (FENCE_TOP - 14)) <= 22 + slop;
+    return this.state === 'perched' && Math.hypot(px - this.x, py - this.perchY) <= 22 + slop;
   }
 
   scare(): void {
+    if (this.state !== 'perched') return;
     this.state = 'flying';
     this.fx = this.x;
-    this.fy = FENCE_TOP - 14;
+    this.fy = this.perchY;
     this.vx = this.dir * 160;
     this.vy = -220;
-    audio.chirp();
+    if (this.voice === 'caw') audio.caw();
+    else audio.chirp();
   }
 
   /** `seen` says whether the bird's post is on screen right now. */
@@ -153,7 +222,7 @@ export class Bird {
     if (this.state === 'away') return;
     const flying = this.state === 'flying';
     const x = flying ? this.fx : this.x;
-    const y = flying ? this.fy : FENCE_TOP - 14;
+    const y = flying ? this.fy : this.perchY;
     // Drawn facing right, mirrored when it faces left.
     ctx.save();
     ctx.translate(x, 0);
