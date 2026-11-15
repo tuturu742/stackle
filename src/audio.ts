@@ -1,5 +1,8 @@
 // All sounds are synthesised with Web Audio, so there is nothing to download.
-// iOS only allows audio after a user gesture, so unlock() runs on first touch.
+// iOS only starts audio from inside a touch, and only some touch events count
+// (a touch ending does, a touch starting often does not), so unlock() runs on
+// every touch start and end until audio is running. iOS can also pause audio
+// later (sleep, switching apps); the next touch starts it again.
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -17,7 +20,15 @@ export function unlock(): void {
     master.gain.value = muted ? 0 : MASTER_VOLUME;
     master.connect(limiter).connect(ctx.destination);
   }
-  if (ctx.state !== 'running') void ctx.resume();
+  if (ctx.state === 'running') return;
+  ctx.resume().catch(() => {
+    // Not allowed from this event; a later touch will try again.
+  });
+  // Playing a sound inside the touch is what convinces iOS: a silent blip.
+  const blip = ctx.createBufferSource();
+  blip.buffer = ctx.createBuffer(1, 1, 22050);
+  blip.connect(ctx.destination);
+  blip.start(0);
 }
 
 export function setMuted(value: boolean): void {

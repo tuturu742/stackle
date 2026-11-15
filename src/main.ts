@@ -25,7 +25,6 @@ resize();
 
 canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
-  audio.unlock();
   void keepAwake();
   canvas.setPointerCapture(e.pointerId);
   game.pointerDown(e.pointerId, e.clientX, e.clientY);
@@ -36,6 +35,11 @@ canvas.addEventListener('pointermove', (e) => {
 });
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
   canvas.addEventListener(type, (e) => game.pointerUp(e.pointerId));
+}
+
+// Try to start audio on every touch start and end; iOS accepts only some of them.
+for (const type of ['pointerdown', 'pointerup', 'touchend', 'click']) {
+  document.addEventListener(type, audio.unlock, { capture: true, passive: true });
 }
 
 // Block Safari's pinch zoom, long-press menu and double-tap zoom.
