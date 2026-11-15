@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+# Private design notes; kept local only
+Stackle Name & Design Document.md
