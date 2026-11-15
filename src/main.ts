@@ -6,6 +6,8 @@ import { orchard } from './scenes/orchard';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const game = new Game(orchard);
+// Dev builds only: lets browser tests inspect the scene.
+if (import.meta.env.DEV) Object.assign(window, { game });
 
 let dpr = 1;
 function resize(): void {

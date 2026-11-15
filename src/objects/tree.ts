@@ -2,7 +2,7 @@ import { GROUND_Y, REGROW_SECONDS, palette } from '../config';
 import * as audio from '../audio';
 import { FRUIT, drawFruit, type FruitKind } from './fruit';
 
-interface Slot {
+export interface Slot {
   x: number;
   y: number;
   /** 0 = just picked, 1 = ripe and pickable. */
@@ -20,7 +20,6 @@ const SLOT_OFFSETS = [
 
 export class Tree {
   readonly slots: Slot[];
-  private shake = 0;
 
   constructor(
     readonly x: number,
@@ -44,20 +43,14 @@ export class Tree {
   /** Taking the fruit starts a new one growing in the same place. */
   pick(slot: Slot): void {
     slot.growth = 0;
-    this.shake = Math.max(this.shake, 0.4);
   }
 
-  hitsCanopy(px: number, py: number): boolean {
-    return Math.hypot(px - this.x, py - (GROUND_Y - 300)) < 170;
-  }
-
-  touch(): void {
-    this.shake = 1;
-    audio.rustle();
+  /** Top edge of the fruit hanging in a slot, rising as it grows. */
+  fruitTop(slot: Slot): number {
+    return slot.y - FRUIT[this.fruit].radius * 0.9 * easeOutBack(slot.growth);
   }
 
   update(dt: number): void {
-    this.shake = Math.max(0, this.shake - dt * 2);
     for (const slot of this.slots) {
       if (slot.growth < 1) {
         slot.growth = Math.min(1, slot.growth + dt / REGROW_SECONDS);
@@ -71,8 +64,6 @@ export class Tree {
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {
-    const sway = Math.sin(time * 20) * this.shake * 6;
-
     ctx.fillStyle = palette.trunk;
     ctx.beginPath();
     ctx.roundRect(this.x - 22, GROUND_Y - 250, 44, 260, 18);
@@ -88,20 +79,19 @@ export class Tree {
       [50, 60, 90],
     ]) {
       ctx.beginPath();
-      ctx.arc(this.x + dx + sway, cy + dy, r, 0, Math.PI * 2);
+      ctx.arc(this.x + dx, cy + dy, r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.fillStyle = palette.canopyLight;
     ctx.beginPath();
-    ctx.arc(this.x - 40 + sway, cy - 70, 55, 0, Math.PI * 2);
+    ctx.arc(this.x - 40, cy - 70, 55, 0, Math.PI * 2);
     ctx.fill();
 
     for (const slot of this.slots) {
       if (slot.growth <= 0.02) continue;
       const g = easeOutBack(slot.growth);
       const w = Math.sin(time * 30) * slot.wobble * 0.15;
-      const swing = Math.sin(time * 2 + slot.x) * 0.04;
-      drawFruit(ctx, this.fruit, slot.x + sway, slot.y, swing, g * (1 + w), g * (1 - w));
+      drawFruit(ctx, this.fruit, slot.x, slot.y, 0, g * (1 + w), g * (1 - w));
     }
   }
 }

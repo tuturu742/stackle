@@ -1,4 +1,3 @@
-import Matter from 'matter-js';
 import { palette } from '../config';
 
 export type FruitKind = 'apple' | 'pear' | 'plum';
@@ -15,43 +14,27 @@ export const FRUIT: Record<FruitKind, FruitLook> = {
   plum: { radius: 28, color: '#a07ac4', shine: '#c8b0e0' },
 };
 
-/** Anything that can be picked up and moved. */
+/** Anything that can be picked up, moved and stacked. Stacks own position and motion. */
 export class Item {
-  readonly body: Matter.Body;
   readonly radius: number;
+  /** Stacked items sit this far apart. */
+  readonly height: number;
   /** Only regrowable things can go into a puddle or bin. Characters never can. */
   readonly disposable = true;
-  held = false;
   squash = 0;
-  lastPlop = 0;
 
-  constructor(
-    readonly kind: FruitKind,
-    x: number,
-    y: number,
-  ) {
-    const r = FRUIT[kind].radius;
-    this.radius = r;
-    // A rounded box rather than a circle, so fruit sits still and stacks.
-    this.body = Matter.Bodies.rectangle(x, y, r * 2, r * 1.8, {
-      chamfer: { radius: r * 0.8 },
-      friction: 0.9,
-      frictionStatic: 1.2,
-      frictionAir: 0.02,
-      restitution: 0.15,
-      density: 0.002,
-      sleepThreshold: 40,
-    });
+  constructor(readonly kind: FruitKind) {
+    this.radius = FRUIT[kind].radius;
+    this.height = this.radius * 1.8;
   }
 
   update(dt: number): void {
     this.squash = Math.max(0, this.squash - dt * 1.5);
   }
 
-  draw(ctx: CanvasRenderingContext2D): void {
-    const { x, y } = this.body.position;
+  draw(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number): void {
     const s = Math.sin(performance.now() / 40) * this.squash;
-    drawFruit(ctx, this.kind, x, y, this.body.angle, 1 + this.squash * 0.6 + s * 0.1, 1 - this.squash * 0.6);
+    drawFruit(ctx, this.kind, x, y, angle, 1 + this.squash * 0.6 + s * 0.1, 1 - this.squash * 0.6);
   }
 }
 

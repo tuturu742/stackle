@@ -83,11 +83,6 @@ export function plop(strength: number): void {
   tone(240, 110, 0.08, 0.1 + 0.25 * s);
 }
 
-/** Tapping the tree. */
-export function rustle(): void {
-  noise(0.18, 2400, 0.12);
-}
-
 // A few plock variations, so the favourite sound stays fresh.
 const PLOCKS = [
   { from: 360, to: 70 },

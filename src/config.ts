@@ -9,8 +9,22 @@ export const STEP = 1 / 60;
 // Touch is forgiving: an object can be grabbed this far outside its shape.
 export const GRAB_SLOP = 32;
 
-// A flick only sends things a short way (world units per physics step).
-export const MAX_RELEASE_SPEED = 10;
+// Depth on the ground: a larger floor line is nearer the viewer and drawn in front.
+// Things dropped from the air land on FALL_FLOOR, just in front of the puddles.
+export const FALL_FLOOR = GROUND_Y + 50;
+export const FRONT_FLOOR = WORLD_H - 14;
+/** Letting go with the bottom at least this low counts as putting it on the ground. */
+export const GROUND_BAND = GROUND_Y - 24;
+
+export const GRAVITY = 1800;
+
+// Let go slower than this and the thing is placed; faster is a flick. A flick
+// only sends things a short way (world units per second).
+export const PLACE_SPEED = 400;
+export const MAX_RELEASE_SPEED = 600;
+
+/** Towers can grow only this close to the top of the screen. */
+export const TOP_MARGIN = 8;
 
 export const REGROW_SECONDS = 3;
 

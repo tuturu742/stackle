@@ -1,8 +1,9 @@
 # Stackle
 
 A calm placing-and-stacking toy for a 3-year-old, played on an iPad 9th gen in Safari
-as a home-screen web app. TypeScript + Vite, Canvas 2D rendering, Matter.js physics,
-Web Audio sounds generated in code. Deployed to GitHub Pages by `.github/workflows/deploy.yml`.
+as a home-screen web app. TypeScript + Vite, Canvas 2D rendering, a small hand-written
+motion model (gravity and depth floors, no physics engine), Web Audio sounds generated
+in code. Deployed to GitHub Pages by `.github/workflows/deploy.yml`.
 
 The full design document lives locally (gitignored) as `Stackle Name & Design Document.md`.
 Read it when it exists; it is the source of truth for intent. Keep personal details
@@ -15,22 +16,36 @@ from it out of committed files: the repo is public.
   something the child did. Nothing flashes, jumps or makes loud noise unprompted.
 - Forgiving touch: big hit areas (`GRAB_SLOP`), drag from anywhere on an object,
   every pointer tracked on its own so whole-hand taps never break anything.
-- Placement: a disposable thing sinks only when it touches a puddle's water (or a bin's
-  opening) after being let go. Anywhere else it is just put down. No aim assist.
+- The ground has depth: each stack rests on a floor line, and a larger line is nearer the
+  viewer and drawn in front. Stacks never collide with each other.
+- Letting go decides everything (`Game.release`). Placed gently (slow release):
+  - on the top of a tower or on a fruit hanging on a tree (even a growing one), it glues on
+    straight;
+  - directly on a puddle's water (or a bin's opening), it drowns one item at a time, bottom first.
+  Otherwise: let go low on the ground, it stays at that depth; let go in the air, it falls and
+  lands on `FALL_FLOOR` (just in front of the puddles), in front of anything it falls past.
+  Falling things never join a tower. No aim assist.
+- Towers never tumble; sway while carried is drawn only (a damped spring), so the connection
+  never breaks. Grabbing the bottom item lifts the whole tower; grabbing a higher item splits
+  it, taking that item and everything above. Picking a tree fruit takes the tower on it too.
+- Stack limit: a tower stops at the top of the screen; whatever does not fit breaks off and
+  falls beside it as a new stack.
+- The tree does nothing when touched; it only gives fruit.
 - Only regrowable things (fruit, treats, food) are disposable. Characters (animals) can be
   moved and stacked but never disposed of; every object carries a `disposable` flag.
 - All art is original, drawn in code: flat rounded shapes, soft palette, no outlines.
   Never imitate Sago Mini or any other game.
-- Target 60 fps on the iPad 9th gen: keep physical object counts modest, let bodies sleep.
+- Target 60 fps on the iPad 9th gen: keep object counts modest.
 
 ## Layout
 
 - `src/main.ts`: canvas, resize, pointer input, wake lock, fixed-step loop
-- `src/game.ts`: world, physics, grabbing, sinking, drawing
+- `src/game.ts`: world, motion, grabbing, placing, drowning, depth-sorted drawing
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
-- `src/objects/`: shared objects (fruit/items, tree, puddle)
+- `src/objects/`: shared objects (items, stacks, tree, puddle)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - World units: one screen is 1024x768, ground at y=640.
+- In dev builds the game is on `window.game`, so browser tests can inspect `game.stacks`.
 
 ## Milestones
 

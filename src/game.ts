@@ -1,18 +1,32 @@
-import Matter from 'matter-js';
-import { GRAB_SLOP, GROUND_Y, MAX_RELEASE_SPEED, SCREEN_W, STEP, WORLD_H, palette } from './config';
+import {
+  FALL_FLOOR,
+  FRONT_FLOOR,
+  GRAB_SLOP,
+  GRAVITY,
+  GROUND_BAND,
+  GROUND_Y,
+  MAX_RELEASE_SPEED,
+  PLACE_SPEED,
+  SCREEN_W,
+  STEP,
+  TOP_MARGIN,
+  WORLD_H,
+  palette,
+} from './config';
 import * as audio from './audio';
 import { Splashes } from './fx';
 import { Item, drawFruit, type FruitKind } from './objects/fruit';
 import { Puddle } from './objects/puddle';
+import { Stack, type Anchor } from './objects/stack';
 import { Tree } from './objects/tree';
 import type { SceneDef } from './scenes/scene';
 
 interface Hold {
-  item: Item;
+  stack: Stack;
   /** Where the finger is, in world units. */
   x: number;
   y: number;
-  /** Offset from the finger to the item centre, so it never jumps when grabbed. */
+  /** Offset from the finger to the stack's bottom centre, so it never jumps when grabbed. */
   dx: number;
   dy: number;
 }
@@ -21,24 +35,22 @@ interface Sinking {
   kind: FruitKind;
   x: number;
   y: number;
-  angle: number;
   age: number;
 }
 
 const SINK_SECONDS = 0.3;
+/** A drowning tower loses at most one item this often. */
+const DROWN_INTERVAL = 0.3;
+/** A thing that falls onto the ground lands this far in front of what is already there. */
+const LAYER_GAP = 14;
 
 export class Game {
-  private engine = Matter.Engine.create({ enableSleeping: true });
-  private items: Item[] = [];
-  private itemsByBody = new Map<number, Item>();
+  private stacks: Stack[] = [];
   private trees: Tree[] = [];
   private puddles: Puddle[] = [];
-  private puddlesBySensor = new Map<number, Puddle>();
   private holds = new Map<number, Hold>();
-  private toSink = new Map<Item, Puddle>();
   private sinking: Sinking[] = [];
   private splashes = new Splashes();
-  private walls: Matter.Body[];
   private time = 0;
 
   // View: world units are scaled to fit the screen, ground anchored at the bottom.
@@ -49,34 +61,16 @@ export class Game {
   private viewH = WORLD_H;
 
   constructor(scene: SceneDef) {
-    this.engine.gravity.y = 0.8;
-
-    const ground = Matter.Bodies.rectangle(scene.width / 2, GROUND_Y + 200, scene.width * 4, 400, {
-      isStatic: true,
-      friction: 1,
-    });
-    this.walls = [-1, 1].map((side) =>
-      Matter.Bodies.rectangle(scene.width / 2 + side * (scene.width / 2 + 50), 0, 100, WORLD_H * 4, { isStatic: true }),
-    );
-    Matter.Composite.add(this.engine.world, [ground, ...this.walls]);
-
     for (const def of scene.objects) {
       switch (def.type) {
         case 'tree':
           this.trees.push(new Tree(def.x, def.fruit));
           break;
-        case 'puddle': {
-          const puddle = new Puddle(def.x, def.width);
-          this.puddles.push(puddle);
-          this.puddlesBySensor.set(puddle.sensor.id, puddle);
-          Matter.Composite.add(this.engine.world, puddle.sensor);
+        case 'puddle':
+          this.puddles.push(new Puddle(def.x, def.width));
           break;
-        }
       }
     }
-
-    Matter.Events.on(this.engine, 'collisionStart', (e) => this.onCollisions(e.pairs, true));
-    Matter.Events.on(this.engine, 'collisionActive', (e) => this.onCollisions(e.pairs, false));
   }
 
   resize(cssW: number, cssH: number): void {
@@ -85,9 +79,6 @@ export class Game {
     this.viewH = cssH / this.scale;
     this.camX = (SCREEN_W - this.viewW) / 2;
     this.camY = WORLD_H - this.viewH;
-    // Keep things on the visible part of the ground.
-    Matter.Body.setPosition(this.walls[0], { x: this.camX - 50, y: 0 });
-    Matter.Body.setPosition(this.walls[1], { x: this.camX + this.viewW + 50, y: 0 });
   }
 
   private toWorld(cssX: number, cssY: number): { x: number; y: number } {
@@ -99,38 +90,33 @@ export class Game {
   pointerDown(id: number, cssX: number, cssY: number): void {
     const p = this.toWorld(cssX, cssY);
 
-    let bestItem: Item | null = null;
+    let best: { stack: Stack; index: number } | null = null;
     let bestDist = Infinity;
-    for (const item of this.items) {
-      if (item.held) continue;
-      const d = Math.hypot(p.x - item.body.position.x, p.y - item.body.position.y);
-      if (d <= item.radius + GRAB_SLOP && d < bestDist) {
-        bestItem = item;
-        bestDist = d;
-      }
+    for (const stack of this.stacks) {
+      if (stack.state === 'held') continue;
+      stack.shown().forEach((shown, index) => {
+        const d = Math.hypot(p.x - shown.x, p.y - shown.y);
+        if (d <= shown.item.radius + GRAB_SLOP && d < bestDist) {
+          best = { stack, index };
+          bestDist = d;
+        }
+      });
     }
 
-    let bestSlot: { tree: Tree; slot: Tree['slots'][number] } | null = null;
+    let bestSlot: Anchor | null = null;
     for (const tree of this.trees) {
       const hit = tree.slotAt(p.x, p.y, GRAB_SLOP);
       if (hit && hit.dist < bestDist) {
         bestSlot = { tree, slot: hit.slot };
         bestDist = hit.dist;
-        bestItem = null;
       }
     }
 
     if (bestSlot) {
-      const { tree, slot } = bestSlot;
-      const item = new Item(tree.fruit, slot.x, slot.y);
-      this.addItem(item);
-      tree.pick(slot);
-      audio.pop();
-      this.grab(id, item, p);
-    } else if (bestItem) {
-      this.grab(id, bestItem, p);
-    } else {
-      this.trees.find((t) => t.hitsCanopy(p.x, p.y))?.touch();
+      this.grab(id, this.pick(bestSlot), p);
+    } else if (best) {
+      const { stack, index } = best as { stack: Stack; index: number };
+      this.grab(id, index === 0 ? stack : this.split(stack, index), p);
     }
   }
 
@@ -146,100 +132,252 @@ export class Game {
     const hold = this.holds.get(id);
     if (!hold) return;
     this.holds.delete(id);
-    const { item } = hold;
-    item.held = false;
-    const v = item.body.velocity;
-    const speed = Math.hypot(v.x, v.y);
-    if (speed > MAX_RELEASE_SPEED) {
-      Matter.Body.setVelocity(item.body, { x: (v.x / speed) * MAX_RELEASE_SPEED, y: (v.y / speed) * MAX_RELEASE_SPEED });
+    this.release(hold.stack);
+  }
+
+  /** Taking a fruit off the tree also takes any tower resting on it. */
+  private pick({ tree, slot }: Anchor): Stack {
+    const item = new Item(tree.fruit);
+    const resting = this.stacks.find((s) => s.anchor?.slot === slot);
+    tree.pick(slot);
+    audio.pop();
+    const stack = new Stack([item, ...(resting?.items ?? [])], slot.x, slot.y + item.height / 2);
+    if (resting) {
+      stack.continueFrom(resting);
+      this.removeStack(resting);
     }
+    this.stacks.push(stack);
+    return stack;
   }
 
-  private grab(id: number, item: Item, p: { x: number; y: number }): void {
-    item.held = true;
-    Matter.Sleeping.set(item.body, false);
-    this.holds.set(id, { item, x: p.x, y: p.y, dx: item.body.position.x - p.x, dy: item.body.position.y - p.y });
+  private grab(id: number, stack: Stack, p: { x: number; y: number }): void {
+    stack.state = 'held';
+    stack.anchor = null;
+    stack.drowningIn = null;
+    this.holds.set(id, { stack, x: p.x, y: p.y, dx: stack.x - p.x, dy: stack.bottom - p.y });
   }
 
-  private addItem(item: Item): void {
-    this.items.push(item);
-    this.itemsByBody.set(item.body.id, item);
-    Matter.Composite.add(this.engine.world, item.body);
+  /** Grabbing above the bottom splits the tower: that item and all above come away. */
+  private split(stack: Stack, index: number): Stack {
+    const upper = new Stack(stack.items.splice(index), stack.x, stack.bottomOf(index));
+    upper.continueFrom(stack);
+    this.stacks.push(upper);
+    return upper;
   }
 
-  private removeItem(item: Item): void {
-    this.items = this.items.filter((i) => i !== item);
-    this.itemsByBody.delete(item.body.id);
-    Matter.Composite.remove(this.engine.world, item.body);
-    for (const [id, hold] of this.holds) if (hold.item === item) this.holds.delete(id);
+  /**
+   * Letting go: placed gently on a tower or a fruit it sticks there, placed on
+   * water it drowns. Otherwise it stays at that depth if let go low on the
+   * ground, or falls from the air onto the ground in front.
+   */
+  private release(stack: Stack): void {
+    const speed = Math.hypot(stack.vx, stack.vy);
+    if (speed < PLACE_SPEED) {
+      const target = this.towerUnder(stack);
+      if (target) return this.glue(target, stack);
+      const anchor = this.fruitUnder(stack);
+      if (anchor) return this.rest(stack, anchor);
+      const puddle = this.puddles.find((p) => p.holds(stack.x, stack.bottom));
+      if (puddle && stack.items[0].disposable) {
+        stack.drowningIn = puddle;
+        stack.fixedFloor = puddle.drownY;
+        stack.vx = stack.vy = 0;
+        stack.state = 'falling';
+        return;
+      }
+    } else {
+      const k = MAX_RELEASE_SPEED / speed;
+      if (k < 1) {
+        stack.vx *= k;
+        stack.vy *= k;
+      }
+    }
+    stack.fixedFloor =
+      stack.bottom >= GROUND_BAND ? Math.min(FRONT_FLOOR, Math.max(GROUND_Y, stack.bottom)) : null;
+    stack.state = 'falling';
+  }
+
+  private towerUnder(stack: Stack): Stack | null {
+    let best: Stack | null = null;
+    let bestDist = Infinity;
+    for (const other of this.stacks) {
+      if (other === stack || (other.state !== 'resting' && other.state !== 'anchored') || other.drowningIn) continue;
+      const top = other.items[other.items.length - 1];
+      const dx = Math.abs(stack.x - other.x);
+      const dy = Math.abs(stack.bottom - (other.bottom - other.height));
+      if (dx < (top.radius + stack.radius) * 0.6 && dy < stack.items[0].height * 0.5 && dx + dy < bestDist) {
+        best = other;
+        bestDist = dx + dy;
+      }
+    }
+    return best;
+  }
+
+  private fruitUnder(stack: Stack): Anchor | null {
+    for (const tree of this.trees) {
+      for (const slot of tree.slots) {
+        if (slot.growth < 0.15 || this.stacks.some((s) => s.anchor?.slot === slot)) continue;
+        const dx = Math.abs(stack.x - slot.x);
+        const dy = Math.abs(stack.bottom - tree.fruitTop(slot));
+        if (dx < stack.radius * 0.8 && dy < stack.items[0].height * 0.5) return { tree, slot };
+      }
+    }
+    return null;
+  }
+
+  /** Glue `upper` straight on top of `lower`, so they move as one tower. */
+  private glue(lower: Stack, upper: Stack): void {
+    const below = lower.items[lower.items.length - 1];
+    below.squash = 0.15;
+    upper.items[0].squash = 0.25;
+    // A sideways landing sets the tower rocking a little.
+    lower.nudge((upper.vx / 60) * 0.3);
+    lower.items.push(...upper.items);
+    this.removeStack(upper);
+    audio.plop(0.4);
+    this.limitHeight(lower);
+  }
+
+  /** Rest a stack on a fruit hanging on the tree, even a growing one. */
+  private rest(stack: Stack, anchor: Anchor): void {
+    stack.state = 'anchored';
+    stack.anchor = anchor;
+    stack.vx = stack.vy = 0;
+    stack.items[0].squash = 0.25;
+    audio.plop(0.4);
+    this.limitHeight(stack);
+  }
+
+  /** A tower stops at the top of the screen; what does not fit falls off beside it. */
+  private limitHeight(stack: Stack): void {
+    const top = this.camY + TOP_MARGIN;
+    let keep = 1;
+    while (keep < stack.items.length && stack.bottomOf(keep + 1) >= top) keep++;
+    if (keep >= stack.items.length) return;
+
+    const bottom = stack.bottomOf(keep);
+    const excess = stack.items.splice(keep);
+    const towardMiddle = stack.x < this.camX + this.viewW / 2 ? 1 : -1;
+    const fallen = new Stack(excess, stack.x + towardMiddle * (stack.radius + excess[0].radius) * 1.1, bottom);
+    fallen.continueFrom(stack);
+    fallen.nudge(towardMiddle * 1.5);
+    this.stacks.push(fallen);
+  }
+
+  private removeStack(stack: Stack): void {
+    this.stacks = this.stacks.filter((s) => s !== stack);
+    for (const [id, hold] of this.holds) if (hold.stack === stack) this.holds.delete(id);
+  }
+
+  /** Where a dropped stack lands: in front of the ground line and anything it falls past. */
+  private landingFloor(stack: Stack): number {
+    if (stack.fixedFloor !== null) return stack.fixedFloor;
+    let floor = FALL_FLOOR;
+    for (const other of this.stacks) {
+      if (other === stack || other.state !== 'resting' || other.drowningIn) continue;
+      if (Math.abs(other.x - stack.x) < (other.radius + stack.radius) * 0.9) floor = Math.max(floor, other.floor + LAYER_GAP);
+    }
+    return Math.min(floor, FRONT_FLOOR);
   }
 
   // --- Simulation --------------------------------------------------------
 
-  private onCollisions(pairs: Matter.Pair[], started: boolean): void {
-    for (const pair of pairs) {
-      const { bodyA, bodyB } = pair;
-      const puddle = this.puddlesBySensor.get(bodyA.id) ?? this.puddlesBySensor.get(bodyB.id);
-      const itemA = this.itemsByBody.get(bodyA.id);
-      const itemB = this.itemsByBody.get(bodyB.id);
-
-      if (puddle) {
-        const item = itemA ?? itemB;
-        // Only once let go: holding something over the water does nothing yet.
-        if (item && item.disposable && !item.held) this.toSink.set(item, puddle);
-        continue;
-      }
-
-      if (!started) continue;
-      const speed = Math.hypot(bodyA.velocity.x - bodyB.velocity.x, bodyA.velocity.y - bodyB.velocity.y);
-      if (speed < 2) continue;
-      for (const item of [itemA, itemB]) {
-        if (!item || item.held || this.time - item.lastPlop < 0.15) continue;
-        item.lastPlop = this.time;
-        item.squash = Math.min(0.3, speed * 0.035);
-        audio.plop(speed / 10);
-      }
-    }
-  }
-
   step(): void {
-    this.time += STEP;
+    const dt = STEP;
+    this.time += dt;
+    const left = this.camX;
+    const right = this.camX + this.viewW;
 
     for (const hold of this.holds.values()) {
-      const { body } = hold.item;
-      // Steer the held body toward the finger with velocity, so it still
-      // collides with things and keeps its speed for a flick on release.
-      Matter.Body.setVelocity(body, {
-        x: hold.x + hold.dx - body.position.x,
-        y: hold.y + hold.dy - body.position.y,
-      });
-      Matter.Body.setAngularVelocity(body, -body.angle * 0.2);
+      const { stack } = hold;
+      const x = Math.max(left + stack.radius, Math.min(right - stack.radius, hold.x + hold.dx));
+      const bottom = hold.y + hold.dy;
+      // Smoothed finger speed, kept for a flick on release.
+      stack.vx = stack.vx * 0.5 + ((x - stack.x) / dt) * 0.5;
+      stack.vy = stack.vy * 0.5 + ((bottom - stack.bottom) / dt) * 0.5;
+      stack.x = x;
+      stack.bottom = bottom;
     }
 
-    Matter.Engine.update(this.engine, STEP * 1000);
+    for (const stack of [...this.stacks]) {
+      switch (stack.state) {
+        case 'anchored': {
+          const { tree, slot } = stack.anchor!;
+          stack.x = slot.x;
+          stack.bottom = tree.fruitTop(slot);
+          break;
+        }
+        case 'falling':
+          this.fall(stack, dt, left, right);
+          break;
+        case 'resting':
+          if (stack.vx !== 0) {
+            stack.x = Math.max(left + stack.radius, Math.min(right - stack.radius, stack.x + stack.vx * dt));
+            stack.vx *= Math.exp(-10 * dt);
+            if (Math.abs(stack.vx) < 5) stack.vx = 0;
+          }
+          if (stack.drowningIn && this.time >= stack.nextSinkAt) this.sinkBottom(stack, stack.drowningIn);
+          break;
+      }
+    }
 
-    for (const [item, puddle] of this.toSink) this.sink(item, puddle);
-    this.toSink.clear();
-
-    for (const item of this.items) item.update(STEP);
-    for (const tree of this.trees) tree.update(STEP);
-    for (const puddle of this.puddles) puddle.update(STEP);
-    for (const s of this.sinking) s.age += STEP;
+    for (const stack of this.stacks) stack.update(dt);
+    for (const tree of this.trees) tree.update(dt);
+    for (const puddle of this.puddles) puddle.update(dt);
+    for (const s of this.sinking) s.age += dt;
     this.sinking = this.sinking.filter((s) => s.age < SINK_SECONDS);
-    this.splashes.update(STEP);
+    this.splashes.update(dt);
   }
 
-  private sink(item: Item, puddle: Puddle): void {
-    const { x, y } = item.body.position;
-    this.removeItem(item);
-    this.sinking.push({ kind: item.kind, x, y, angle: item.body.angle, age: 0 });
-    const size = 1;
-    this.splashes.splash(x, puddle.surfaceY, size);
-    puddle.ripple(x, size);
-    audio.plock(size);
+  private fall(stack: Stack, dt: number, left: number, right: number): void {
+    stack.vy += GRAVITY * dt;
+    stack.x = Math.max(left + stack.radius, Math.min(right - stack.radius, stack.x + stack.vx * dt));
+    stack.bottom += stack.vy * dt;
+    stack.floor = this.landingFloor(stack);
+    if (stack.bottom < stack.floor) return;
+
+    stack.bottom = stack.floor;
+    const impact = stack.vy;
+    if (impact > 80) {
+      stack.items[0].squash = Math.min(0.3, impact * 0.0004);
+      audio.plop(impact / 900);
+    }
+    if (impact > 500 && !stack.drowningIn) {
+      stack.vy = -impact * 0.25;
+      return;
+    }
+    stack.vy = 0;
+    stack.state = 'resting';
+    this.limitHeight(stack);
+  }
+
+  /** A tower drowns one item at a time, bottom first; the rest drops in after it. */
+  private sinkBottom(stack: Stack, puddle: Puddle): void {
+    const first = stack.items.shift()!;
+    this.sinking.push({ kind: first.kind, x: stack.x, y: stack.bottom - first.height / 2, age: 0 });
+    this.splashes.splash(stack.x, puddle.surfaceY, 1);
+    puddle.ripple(stack.x, 1);
+    audio.plock(1);
+
+    if (stack.items.length === 0) return this.removeStack(stack);
+    if (!stack.items[0].disposable) {
+      stack.drowningIn = null;
+      stack.fixedFloor = null;
+    }
+    stack.bottom -= first.height;
+    stack.nextSinkAt = this.time + DROWN_INTERVAL;
+    stack.state = 'falling';
   }
 
   // --- Drawing -----------------------------------------------------------
+
+  /** Drawing order: further back first. */
+  private depthOf(stack: Stack): number {
+    if (stack.state === 'held') return Infinity;
+    if (stack.state === 'anchored') return -Infinity;
+    if (stack.drowningIn) return stack.drowningIn.depth + 0.5;
+    return stack.floor;
+  }
 
   draw(ctx: CanvasRenderingContext2D, dpr: number): void {
     const w = ctx.canvas.width;
@@ -270,16 +408,21 @@ export class Game {
     ctx.fillStyle = palette.groundDark;
     ctx.fillRect(left, GROUND_Y + 50, right - left, WORLD_H - GROUND_Y);
 
-    for (const puddle of this.puddles) puddle.draw(ctx, this.time);
     for (const tree of this.trees) tree.draw(ctx, this.time);
 
-    for (const s of this.sinking) {
-      const t = s.age / SINK_SECONDS;
-      drawFruit(ctx, s.kind, s.x, s.y + t * 30, s.angle, 1 + t * 0.2, 1 - t * 0.7, 1 - t);
-    }
-    // Held items draw on top, so the one under the finger is always visible.
-    for (const item of this.items) if (!item.held) item.draw(ctx);
-    for (const item of this.items) if (item.held) item.draw(ctx);
+    const layers: { depth: number; draw: () => void }[] = [
+      ...this.puddles.map((p) => ({ depth: p.depth, draw: () => p.draw(ctx, this.time) })),
+      ...this.stacks.map((s) => ({ depth: this.depthOf(s), draw: () => s.draw(ctx) })),
+      ...this.sinking.map((s) => ({
+        depth: GROUND_Y + 4.6,
+        draw: () => {
+          const t = s.age / SINK_SECONDS;
+          drawFruit(ctx, s.kind, s.x, s.y + t * 30, 0, 1 + t * 0.2, 1 - t * 0.7, 1 - t);
+        },
+      })),
+    ];
+    layers.sort((a, b) => a.depth - b.depth);
+    for (const layer of layers) layer.draw();
 
     this.splashes.draw(ctx);
   }

@@ -1,4 +1,3 @@
-import Matter from 'matter-js';
 import { GROUND_Y, palette } from '../config';
 
 interface Ripple {
@@ -8,22 +7,25 @@ interface Ripple {
 }
 
 /**
- * A puddle sits on solid ground. Its water surface is a sensor: a disposable
- * thing that touches it after being let go sinks with a splash.
+ * A puddle lies flat on the ground. A disposable thing let go directly on its
+ * water drowns with a splash; anything else just stays on the ground around it.
  */
 export class Puddle {
-  readonly sensor: Matter.Body;
   readonly surfaceY = GROUND_Y - 4;
+  /** Depth of the water's centre line, for drawing order. */
+  readonly depth = GROUND_Y + 4;
+  /** Where a drowning tower's bottom rests while it goes under. */
+  readonly drownY = GROUND_Y + 2;
   private ripples: Ripple[] = [];
 
   constructor(
     readonly x: number,
     readonly width: number,
-  ) {
-    this.sensor = Matter.Bodies.rectangle(x, GROUND_Y - 12, width * 0.88, 28, {
-      isStatic: true,
-      isSensor: true,
-    });
+  ) {}
+
+  /** Is a bottom edge at this point directly on the water? */
+  holds(x: number, bottom: number): boolean {
+    return Math.abs(x - this.x) <= this.width * 0.45 && bottom >= this.depth - 36 && bottom <= this.depth + 16;
   }
 
   ripple(x: number, size: number): void {
