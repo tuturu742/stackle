@@ -28,6 +28,9 @@ export class Item {
   wantsFood = false;
   chew = 0;
   happy = 0;
+  asleep = false;
+  snore = 0;
+  private awake = 0;
 
   constructor(readonly kind: ItemKind) {
     if (isFruit(kind)) {
@@ -53,6 +56,17 @@ export class Item {
     return this.animal ? ANIMAL[this.animal].mouthY : 0;
   }
 
+  /** Picked up or offered food: stays awake a little while, even at night. */
+  wake(): void {
+    this.awake = 2.5;
+    this.snore = 0;
+  }
+
+  /** Nothing is keeping it awake, so at night it can sleep. */
+  get restful(): boolean {
+    return this.awake <= 0 && this.chew === 0 && !this.wantsFood;
+  }
+
   /** Start eating: one bite per piece of food. */
   feed(pieces: number): void {
     this.chew += pieces * BITE;
@@ -62,6 +76,9 @@ export class Item {
   update(dt: number): void {
     this.squash = Math.max(0, this.squash - dt * 1.5);
     if (!this.animal) return;
+    if (this.wantsFood) this.wake();
+    this.awake = Math.max(0, this.awake - dt);
+    this.snore = Math.max(0, this.snore - dt);
     this.mouth += ((this.wantsFood ? 1 : 0) - this.mouth) * Math.min(1, dt * 12);
     if (this.chew > 0) {
       const before = Math.ceil(this.chew / BITE);

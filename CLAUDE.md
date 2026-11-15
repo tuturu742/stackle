@@ -36,6 +36,9 @@ from it out of committed files: the repo is public.
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
 - Animals make their sound when picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it (one bite per piece), letting go on its head stacks.
+- Tapping the sun brings night (`src/sky.ts`), tapping the moon brings day. At night animals
+  sleep; one at a time snores quietly with a bubble every few seconds. Holding an animal or
+  offering it food keeps it awake for a little while.
 - All art is original, drawn in code: flat rounded shapes, soft palette, no outlines.
   `references/` (gitignored) holds screenshots of Sago Mini Farm as inspiration for the
   kinds of play only. Never copy its characters, art, buildings or scene layouts.

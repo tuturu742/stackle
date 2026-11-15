@@ -187,3 +187,42 @@ export function animal(kind: AnimalSound): void {
       break;
   }
 }
+
+/** The sun or moon is tapped: a soft falling chime for night, rising for day. */
+export function chime(toNight: boolean): void {
+  const notes = toNight ? [784, 659, 523] : [523, 659, 784];
+  notes.forEach((f, i) => tone(f, f * 0.995, 0.35, 0.12, i * 0.12));
+}
+
+/** A sleepy snore: a slow, low breath in and out. */
+export function snore(): void {
+  const ac = ready();
+  if (!ac || !master) return;
+  const t = ac.currentTime;
+  const duration = 1.1;
+  const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const src = ac.createBufferSource();
+  src.buffer = buffer;
+  const filter = ac.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = 380;
+  filter.Q.value = 4;
+  // A slow rattle, like a real snore.
+  const rattle = ac.createGain();
+  const lfo = ac.createOscillator();
+  const depth = ac.createGain();
+  lfo.frequency.value = 28;
+  depth.gain.value = 0.5;
+  rattle.gain.value = 0.5;
+  lfo.connect(depth).connect(rattle.gain);
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.35, t + duration * 0.6);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+  src.connect(filter).connect(rattle).connect(gain).connect(master);
+  src.start(t);
+  lfo.start(t);
+  lfo.stop(t + duration);
+}

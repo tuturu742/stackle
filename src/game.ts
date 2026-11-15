@@ -15,12 +15,14 @@ import {
 } from './config';
 import * as audio from './audio';
 import { Splashes } from './fx';
+import { SNORE_SECONDS } from './objects/animals';
 import { drawFruit, type FruitKind } from './objects/fruit';
 import { Item } from './objects/item';
 import { Puddle } from './objects/puddle';
 import { Stack, type Anchor } from './objects/stack';
 import { Tree } from './objects/tree';
 import type { SceneDef } from './scenes/scene';
+import { Sky } from './sky';
 
 interface Hold {
   stack: Stack;
@@ -58,6 +60,9 @@ export class Game {
   private holds = new Map<number, Hold>();
   private vanishing: Vanishing[] = [];
   private splashes = new Splashes();
+  private sky = new Sky();
+  private nextSnoreAt = 0;
+  private snoreTurn = 0;
   private time = 0;
 
   // View: world units are scaled to fit the screen, ground anchored at the bottom.
@@ -131,6 +136,8 @@ export class Game {
     } else if (best) {
       const { stack, index } = best as { stack: Stack; index: number };
       this.grab(id, index === 0 ? stack : this.split(stack, index), p);
+    } else if (this.sky.hits(p.x, p.y, GRAB_SLOP)) {
+      this.sky.toggle();
     }
   }
 
@@ -169,6 +176,7 @@ export class Game {
     stack.anchor = null;
     stack.drowningIn = null;
     stack.floatingIn = null;
+    for (const item of stack.items) item.wake();
     const animal = stack.items.find((i) => i.animal)?.animal;
     if (animal) audio.animal(animal);
     this.holds.set(id, { stack, x: p.x, y: p.y, dx: stack.x - p.x, dy: stack.bottom - p.y });
@@ -390,12 +398,34 @@ export class Game {
       }
     }
 
-    for (const stack of this.stacks) stack.update(dt);
+    for (const stack of this.stacks) {
+      for (const item of stack.items) {
+        if (stack.state === 'held') item.wake();
+        item.asleep = this.sky.isNight && !!item.animal && item.restful;
+      }
+      stack.update(dt);
+    }
+    this.sky.update(dt);
+    this.snoreNow();
     for (const tree of this.trees) tree.update(dt);
     for (const puddle of this.puddles) puddle.update(dt);
     for (const v of this.vanishing) v.age += dt;
     this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
     this.splashes.update(dt);
+  }
+
+  /** Deep in the night, now and then one sleeping animal snores. */
+  private snoreNow(): void {
+    if (this.sky.night < 1) {
+      this.nextSnoreAt = this.time + 2;
+      return;
+    }
+    if (this.time < this.nextSnoreAt) return;
+    const sleepers = this.stacks.flatMap((s) => (s.state === 'held' ? [] : s.items.filter((i) => i.asleep)));
+    this.nextSnoreAt = this.time + 4 + Math.random() * 4;
+    if (!sleepers.length) return;
+    sleepers[this.snoreTurn++ % sleepers.length].snore = SNORE_SECONDS;
+    audio.snore();
   }
 
   private fall(stack: Stack, dt: number, left: number, right: number): void {
@@ -473,14 +503,8 @@ export class Game {
   }
 
   draw(ctx: CanvasRenderingContext2D, dpr: number): void {
-    const w = ctx.canvas.width;
-    const h = ctx.canvas.height;
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, palette.skyTop);
-    sky.addColorStop(1, palette.skyBottom);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, w, h);
+    this.sky.drawSky(ctx);
 
     const k = this.scale * dpr;
     ctx.setTransform(k, 0, 0, k, -this.camX * k, -this.camY * k);
@@ -488,10 +512,7 @@ export class Game {
     const left = this.camX;
     const right = this.camX + this.viewW;
 
-    ctx.fillStyle = palette.sun;
-    ctx.beginPath();
-    ctx.arc(860, 130, 60, 0, Math.PI * 2);
-    ctx.fill();
+    this.sky.drawSun(ctx);
 
     this.drawHills(ctx, left, right, 520, 90, 0.004, palette.hillFar);
     this.drawHills(ctx, left, right, 580, 60, 0.007, palette.hillNear);
@@ -527,6 +548,7 @@ export class Game {
     for (const layer of layers) layer.draw();
 
     this.splashes.draw(ctx);
+    this.sky.drawNight(ctx, left, this.camY, this.viewW, this.viewH);
   }
 
   private drawHills(

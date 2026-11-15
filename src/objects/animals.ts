@@ -25,7 +25,12 @@ export interface Face {
   chew: number;
   /** Seconds of looking pleased left. */
   happy: number;
+  asleep: boolean;
+  /** Seconds left of the current snore, 0 when quiet. */
+  snore: number;
 }
+
+export const SNORE_SECONDS = 1.1;
 
 const INK = '#4a3f45';
 
@@ -46,10 +51,12 @@ export function drawAnimal(
   BODY[kind](ctx);
   const look = ANIMAL[kind];
   // While chewing the mouth keeps opening and closing.
-  const open = face.chew > 0 ? 0.25 + 0.25 * Math.sin(face.chew * 18) : face.mouth;
+  const open = face.chew > 0 ? 0.25 + 0.25 * Math.sin(face.chew * 18) : face.asleep ? 0 : face.mouth;
+  const ink = kind === 'sheep' ? '#f5efe6' : INK;
   if (kind === 'hen') drawBeak(ctx, look.mouthY, open);
-  else drawMouth(ctx, look.mouthY, open, kind === 'sheep' ? '#f5efe6' : INK);
-  drawEyes(ctx, EYES[kind], face.happy > 0, kind === 'sheep' ? '#f5efe6' : INK);
+  else drawMouth(ctx, look.mouthY, open, ink);
+  drawEyes(ctx, EYES[kind], face.asleep ? 'asleep' : face.happy > 0 ? 'happy' : 'open', ink);
+  if (face.snore > 0) drawSnoreBubble(ctx, look.radius, look.mouthY, 1 - face.snore / SNORE_SECONDS);
   ctx.restore();
 }
 
@@ -60,21 +67,43 @@ const EYES: Record<AnimalKind, [number, number]> = {
   hen: [9, -20],
 };
 
-function drawEyes(ctx: CanvasRenderingContext2D, [dx, y]: [number, number], happy: boolean, color: string): void {
+function drawEyes(
+  ctx: CanvasRenderingContext2D,
+  [dx, y]: [number, number],
+  mood: 'open' | 'happy' | 'asleep',
+  color: string,
+): void {
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.lineCap = 'round';
   for (const side of [-1, 1]) {
     ctx.beginPath();
-    if (happy) {
+    if (mood === 'happy') {
       ctx.arc(side * dx, y + 2, 5, Math.PI * 1.15, Math.PI * 1.85);
+      ctx.stroke();
+    } else if (mood === 'asleep') {
+      ctx.arc(side * dx, y - 2, 5, Math.PI * 0.15, Math.PI * 0.85);
       ctx.stroke();
     } else {
       ctx.arc(side * dx, y, 4.5, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+}
+
+/** A bubble that swells from the side of the mouth and shrinks away. */
+function drawSnoreBubble(ctx: CanvasRenderingContext2D, radius: number, mouthY: number, phase: number): void {
+  const r = 3 + 11 * Math.sin(phase * Math.PI);
+  const x = Math.min(radius * 0.45, 12) + r;
+  ctx.fillStyle = 'rgba(190, 225, 245, 0.8)';
+  ctx.beginPath();
+  ctx.arc(x, mouthY, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.beginPath();
+  ctx.arc(x - r * 0.35, mouthY - r * 0.35, r * 0.25, 0, Math.PI * 2);
+  ctx.fill();
 }
 
 function drawMouth(ctx: CanvasRenderingContext2D, y: number, open: number, color: string): void {
