@@ -36,6 +36,9 @@ from it out of committed files: the repo is public.
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
 - Animals make their sound when picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it (one bite per piece), letting go on its head stacks.
+- The farm is a long scene (`SceneDef.width`, five screens now). Dragging empty ground or sky
+  pans; a swipe glides a little (capped), a resting finger stops it. Carrying something to the
+  screen edge scrolls the world. Sun, moon and stars stay fixed on screen.
 - Tapping the sun brings night (`src/sky.ts`), tapping the moon brings day. At night animals
   sleep; one at a time snores quietly with a bubble every few seconds. Holding an animal or
   offering it food keeps it awake for a little while.
@@ -58,11 +61,12 @@ from it out of committed files: the repo is public.
 
 1. Placement test: one tree, one puddle, pick/carry/place/splash. Done.
 2. Stacking: glued towers, depth layers, stack limit, one-by-one drowning. Done.
-3. Animals: cow, hen, sheep, pig; stack with fruit; feeding through an open mouth. **Awaiting test.**
+3. Animals: cow, hen, sheep, pig; stack with fruit; feeding through an open mouth. Done.
+4. Day and night. Done.
+5. Long scrolling farm, five screens, edge scrolling while carrying. **Awaiting test.**
 
 Farm roadmap (the parent's goal, in rough order, each slice tested before the next):
 
-- Long scrolling farm (about 5 screens), drag empty ground to pan.
 - Hats and a hat dispenser; hats stack on animals and can be drowned.
 - Rain cloud you press and drag; vegetable beds grow under the rain, pickable when ready.
 - Vehicles animals can sit on.

@@ -1,17 +1,17 @@
-import { palette } from './config';
+import { SCREEN_W, palette } from './config';
 import * as audio from './audio';
 
-const SUN = { x: 860, y: 130, r: 60 };
+// The sun keeps its place near the top right of the screen as the world scrolls.
+const SUN = { fromRight: 164, y: 130, r: 60 };
 /** Seconds for day to turn into night, or back. */
 const FADE_SECONDS = 2;
 
-// Night is drawn by multiplying the whole scene with this colour, so these sky
-// colours are chosen to come out as a deep blue once multiplied.
-const NIGHT_TINT = [107, 120, 168];
-const NIGHT_SKY_TOP = '#4a5b7c';
-const NIGHT_SKY_BOTTOM = '#8997a9';
+const NIGHT_SKY_TOP = '#1f2b52';
+const NIGHT_SKY_BOTTOM = '#3a4870';
+/** At full night the landscape is washed with this colour. */
+const NIGHT_WASH = 'rgba(18, 26, 68, 0.62)';
 
-// Fixed stars, kept to open sky away from the tree and the moon. They never twinkle.
+// Fixed stars, spread across the screen behind everything. They never twinkle.
 const STARS = [
   [540, 60, 2.5],
   [620, 140, 2],
@@ -34,13 +34,24 @@ export class Sky {
   /** 0 = full day, 1 = full night. */
   night = 0;
   private toNight = false;
+  private left = 0;
+  private width = SCREEN_W;
+
+  setView(left: number, width: number): void {
+    this.left = left;
+    this.width = width;
+  }
+
+  private get sunX(): number {
+    return this.left + this.width - SUN.fromRight;
+  }
 
   get isNight(): boolean {
     return this.night > 0.5;
   }
 
   hits(x: number, y: number, slop: number): boolean {
-    return Math.hypot(x - SUN.x, y - SUN.y) <= SUN.r + slop;
+    return Math.hypot(x - this.sunX, y - SUN.y) <= SUN.r + slop;
   }
 
   toggle(): void {
@@ -63,48 +74,55 @@ export class Sky {
     ctx.fillRect(0, 0, width, height);
   }
 
-  /** The sun sinks and fades as night comes. Drawn in world units. */
-  drawSun(ctx: CanvasRenderingContext2D): void {
-    if (this.night >= 1) return;
+  /**
+   * Sun, moon and stars, in world units, behind the landscape: the sun sinks
+   * and fades as night comes, and the moon rises into its place.
+   */
+  drawLights(ctx: CanvasRenderingContext2D): void {
     const t = ease(this.night);
-    ctx.globalAlpha = 1 - t;
-    ctx.fillStyle = palette.sun;
-    ctx.beginPath();
-    ctx.arc(SUN.x, SUN.y + t * 50, SUN.r, 0, Math.PI * 2);
-    ctx.fill();
+    const x = this.sunX;
+    if (t < 1) {
+      ctx.globalAlpha = 1 - t;
+      ctx.fillStyle = palette.sun;
+      ctx.beginPath();
+      ctx.arc(x, SUN.y + t * 50, SUN.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    if (t > 0) {
+      ctx.globalAlpha = t;
+      ctx.fillStyle = '#fdf6d8';
+      const spread = this.width / SCREEN_W;
+      for (const [sx, sy, size] of STARS) {
+        ctx.beginPath();
+        ctx.arc(this.left + sx * spread, sy, size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // A soft crescent: the moon with a round bite clipped out of it.
+      const y = SUN.y + (1 - t) * 50;
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - SUN.r * 2, y - SUN.r * 2, SUN.r * 4, SUN.r * 4);
+      ctx.arc(x + 24, y - 14, SUN.r * 0.62, 0, Math.PI * 2);
+      ctx.clip('evenodd');
+      ctx.fillStyle = '#f6efcf';
+      ctx.beginPath();
+      ctx.arc(x, y, SUN.r * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     ctx.globalAlpha = 1;
   }
 
-  /** Darken the finished scene, then put the moon and stars on top. */
-  drawNight(ctx: CanvasRenderingContext2D, left: number, top: number, width: number, height: number): void {
+  /** Darken a layer holding only the landscape, leaving the sky behind it alone. */
+  washLandscape(layer: CanvasRenderingContext2D): void {
     if (this.night <= 0) return;
-    const t = ease(this.night);
-    const [r, g, b] = NIGHT_TINT.map((c) => Math.round(255 + (c - 255) * t));
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = `rgb(${r},${g},${b})`;
-    ctx.fillRect(left, top, width, height);
-    ctx.globalCompositeOperation = 'source-over';
-
-    ctx.globalAlpha = t;
-    ctx.fillStyle = '#fdf6d8';
-    for (const [x, y, size] of STARS) {
-      ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    // The moon rises into the sun's place: a soft crescent.
-    const y = SUN.y + (1 - t) * 50;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(SUN.x - SUN.r * 2, y - SUN.r * 2, SUN.r * 4, SUN.r * 4);
-    ctx.arc(SUN.x + 24, y - 14, SUN.r * 0.62, 0, Math.PI * 2);
-    ctx.clip('evenodd');
-    ctx.fillStyle = '#f6efcf';
-    ctx.beginPath();
-    ctx.arc(SUN.x, y, SUN.r * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    ctx.globalAlpha = 1;
+    layer.save();
+    layer.setTransform(1, 0, 0, 1, 0, 0);
+    layer.globalCompositeOperation = 'source-atop';
+    layer.globalAlpha = ease(this.night);
+    layer.fillStyle = NIGHT_WASH;
+    layer.fillRect(0, 0, layer.canvas.width, layer.canvas.height);
+    layer.restore();
   }
 }
 

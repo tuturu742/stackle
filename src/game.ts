@@ -26,9 +26,9 @@ import { Sky } from './sky';
 
 interface Hold {
   stack: Stack;
-  /** Where the finger is, in world units. */
-  x: number;
-  y: number;
+  /** Where the finger is on screen, so the world can scroll under a resting finger. */
+  cssX: number;
+  cssY: number;
   /** Offset from the finger to the stack's bottom centre, so it never jumps when grabbed. */
   dx: number;
   dy: number;
@@ -52,17 +52,29 @@ const EAT_DIST = 18;
 const DROWN_INTERVAL = 0.3;
 /** A thing that falls onto the ground lands this far in front of what is already there. */
 const LAYER_GAP = 14;
+/** Carrying something this close to the screen edge (in screen pixels) scrolls the world. */
+const EDGE_SCROLL_ZONE = 70;
+const EDGE_SCROLL_SPEED = 700;
+/** A swipe glides at most this fast (world units per second), so it never flies off. */
+const MAX_GLIDE = 1600;
 
 export class Game {
   private stacks: Stack[] = [];
   private trees: Tree[] = [];
   private puddles: Puddle[] = [];
   private holds = new Map<number, Hold>();
+  /** Fingers dragging empty ground, panning the world. */
+  private pans = new Map<number, { cssX: number; speed: number }>();
+  /** Glide left over after a swipe, in world units per second. */
+  private camVx = 0;
+  private readonly width: number;
   private vanishing: Vanishing[] = [];
   private splashes = new Splashes();
   private sky = new Sky();
   private nextSnoreAt = 0;
   private snoreTurn = 0;
+  /** Offscreen canvas for the landscape at night. */
+  private layer: CanvasRenderingContext2D | null = null;
   private time = 0;
 
   // View: world units are scaled to fit the screen, ground anchored at the bottom.
@@ -73,6 +85,7 @@ export class Game {
   private viewH = WORLD_H;
 
   constructor(scene: SceneDef) {
+    this.width = scene.width;
     for (const def of scene.objects) {
       switch (def.type) {
         case 'tree':
@@ -96,8 +109,15 @@ export class Game {
     this.scale = Math.min(cssW / SCREEN_W, cssH / WORLD_H);
     this.viewW = cssW / this.scale;
     this.viewH = cssH / this.scale;
-    this.camX = (SCREEN_W - this.viewW) / 2;
     this.camY = WORLD_H - this.viewH;
+    this.setCamera(this.camX);
+  }
+
+  /** Move the view, never past either end of the scene. */
+  private setCamera(x: number): void {
+    const max = this.width - this.viewW;
+    this.camX = max <= 0 ? max / 2 : Math.max(0, Math.min(max, x));
+    this.sky.setView(this.camX, this.viewW);
   }
 
   private toWorld(cssX: number, cssY: number): { x: number; y: number } {
@@ -138,18 +158,34 @@ export class Game {
       this.grab(id, index === 0 ? stack : this.split(stack, index), p);
     } else if (this.sky.hits(p.x, p.y, GRAB_SLOP)) {
       this.sky.toggle();
+    } else {
+      // Empty ground or sky: drag the world.
+      this.camVx = 0;
+      this.pans.set(id, { cssX, speed: 0 });
     }
   }
 
   pointerMove(id: number, cssX: number, cssY: number): void {
     const hold = this.holds.get(id);
-    if (!hold) return;
-    const p = this.toWorld(cssX, cssY);
-    hold.x = p.x;
-    hold.y = p.y;
+    if (hold) {
+      hold.cssX = cssX;
+      hold.cssY = cssY;
+    }
+    const pan = this.pans.get(id);
+    if (pan) {
+      const dx = (cssX - pan.cssX) / this.scale;
+      pan.cssX = cssX;
+      this.setCamera(this.camX - dx);
+      pan.speed = pan.speed * 0.6 + (-dx / STEP) * 0.4;
+    }
   }
 
   pointerUp(id: number): void {
+    const pan = this.pans.get(id);
+    if (pan) {
+      this.pans.delete(id);
+      this.camVx = Math.max(-MAX_GLIDE, Math.min(MAX_GLIDE, pan.speed));
+    }
     const hold = this.holds.get(id);
     if (!hold) return;
     this.holds.delete(id);
@@ -179,7 +215,8 @@ export class Game {
     for (const item of stack.items) item.wake();
     const animal = stack.items.find((i) => i.animal)?.animal;
     if (animal) audio.animal(animal);
-    this.holds.set(id, { stack, x: p.x, y: p.y, dx: stack.x - p.x, dy: stack.bottom - p.y });
+    const css = { x: (p.x - this.camX) * this.scale, y: (p.y - this.camY) * this.scale };
+    this.holds.set(id, { stack, cssX: css.x, cssY: css.y, dx: stack.x - p.x, dy: stack.bottom - p.y });
   }
 
   /** Grabbing above the bottom splits the tower: that item and all above come away. */
@@ -356,8 +393,12 @@ export class Game {
   step(): void {
     const dt = STEP;
     this.time += dt;
-    const left = this.camX;
-    const right = this.camX + this.viewW;
+    const left = 0;
+    const right = this.width;
+
+    const camBefore = this.camX;
+    this.moveCamera(dt);
+    const camMoved = this.camX - camBefore;
 
     for (const stack of this.stacks) for (const item of stack.items) item.wantsFood = false;
     for (const hold of this.holds.values()) {
@@ -367,10 +408,11 @@ export class Game {
 
     for (const hold of this.holds.values()) {
       const { stack } = hold;
-      const x = Math.max(left + stack.radius, Math.min(right - stack.radius, hold.x + hold.dx));
-      const bottom = hold.y + hold.dy;
-      // Smoothed finger speed, kept for a flick on release.
-      stack.vx = stack.vx * 0.5 + ((x - stack.x) / dt) * 0.5;
+      const finger = this.toWorld(hold.cssX, hold.cssY);
+      const x = Math.max(left + stack.radius, Math.min(right - stack.radius, finger.x + hold.dx));
+      const bottom = finger.y + hold.dy;
+      // Smoothed finger speed, kept for a flick on release. Scrolling is not a flick.
+      stack.vx = stack.vx * 0.5 + ((x - stack.x - camMoved) / dt) * 0.5;
       stack.vy = stack.vy * 0.5 + ((bottom - stack.bottom) / dt) * 0.5;
       stack.x = x;
       stack.bottom = bottom;
@@ -412,6 +454,24 @@ export class Game {
     for (const v of this.vanishing) v.age += dt;
     this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
     this.splashes.update(dt);
+  }
+
+  /** Glide after a swipe, and scroll while something is carried to the screen edge. */
+  private moveCamera(dt: number): void {
+    let x = this.camX;
+    // A finger resting on the ground lets its swipe speed fade, so letting go then doesn't glide.
+    for (const pan of this.pans.values()) pan.speed *= Math.exp(-12 * dt);
+    if (this.pans.size === 0) {
+      x += this.camVx * dt;
+      this.camVx *= Math.exp(-5 * dt);
+    }
+    const screenW = this.viewW * this.scale;
+    for (const hold of this.holds.values()) {
+      const zone = Math.min(EDGE_SCROLL_ZONE, screenW / 6);
+      if (hold.cssX < zone) x -= EDGE_SCROLL_SPEED * (1 - hold.cssX / zone) * dt;
+      else if (hold.cssX > screenW - zone) x += EDGE_SCROLL_SPEED * (1 - (screenW - hold.cssX) / zone) * dt;
+    }
+    if (x !== this.camX) this.setCamera(x);
   }
 
   /** Deep in the night, now and then one sleeping animal snores. */
@@ -502,20 +562,30 @@ export class Game {
     ctx.stroke();
   }
 
-  draw(ctx: CanvasRenderingContext2D, dpr: number): void {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    this.sky.drawSky(ctx);
-
+  draw(screen: CanvasRenderingContext2D, dpr: number): void {
+    screen.setTransform(1, 0, 0, 1, 0, 0);
+    this.sky.drawSky(screen);
     const k = this.scale * dpr;
-    ctx.setTransform(k, 0, 0, k, -this.camX * k, -this.camY * k);
+    screen.setTransform(k, 0, 0, k, -this.camX * k, -this.camY * k);
+    this.sky.drawLights(screen);
+
+    // At night the landscape is drawn on its own layer, so it can be darkened
+    // without dimming the moon and stars behind it.
+    const night = this.sky.night > 0;
+    const ctx = night ? this.landscapeLayer(screen.canvas) : screen;
+    if (night) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.setTransform(k, 0, 0, k, -this.camX * k, -this.camY * k);
+    }
 
     const left = this.camX;
     const right = this.camX + this.viewW;
 
-    this.sky.drawSun(ctx);
 
-    this.drawHills(ctx, left, right, 520, 90, 0.004, palette.hillFar);
-    this.drawHills(ctx, left, right, 580, 60, 0.007, palette.hillNear);
+    // Hills scroll slower than the ground, so they feel far away.
+    this.drawHills(ctx, left, right, 0.3, 520, 90, 0.004, palette.hillFar);
+    this.drawHills(ctx, left, right, 0.6, 580, 60, 0.007, palette.hillNear);
 
     ctx.fillStyle = palette.ground;
     ctx.fillRect(left, GROUND_Y, right - left, WORLD_H - GROUND_Y + 10);
@@ -548,13 +618,29 @@ export class Game {
     for (const layer of layers) layer.draw();
 
     this.splashes.draw(ctx);
-    this.sky.drawNight(ctx, left, this.camY, this.viewW, this.viewH);
+
+    if (night) {
+      this.sky.washLandscape(ctx);
+      screen.setTransform(1, 0, 0, 1, 0, 0);
+      screen.drawImage(ctx.canvas, 0, 0);
+    }
+  }
+
+  private landscapeLayer(like: HTMLCanvasElement): CanvasRenderingContext2D {
+    if (!this.layer) this.layer = document.createElement('canvas').getContext('2d')!;
+    const { canvas } = this.layer;
+    if (canvas.width !== like.width || canvas.height !== like.height) {
+      canvas.width = like.width;
+      canvas.height = like.height;
+    }
+    return this.layer;
   }
 
   private drawHills(
     ctx: CanvasRenderingContext2D,
     left: number,
     right: number,
+    parallax: number,
     base: number,
     height: number,
     freq: number,
@@ -563,8 +649,10 @@ export class Game {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(left, GROUND_Y + 1);
+    const shift = this.camX * (1 - parallax);
     for (let x = left; x <= right + 20; x += 20) {
-      ctx.lineTo(x, base - height * (0.5 + 0.5 * Math.sin(x * freq) * Math.cos(x * freq * 0.37)));
+      const u = x - shift;
+      ctx.lineTo(x, base - height * (0.5 + 0.5 * Math.sin(u * freq) * Math.cos(u * freq * 0.37)));
     }
     ctx.lineTo(right, GROUND_Y + 1);
     ctx.fill();
