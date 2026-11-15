@@ -43,7 +43,7 @@ from it out of committed files: the repo is public.
   Animals and toys (the model ship, instruments) are keepers: never lost, even across layouts. Animals can be moved and
   stacked (in the same towers as fruit) but never disposed of; every item carries a
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
-- Animals (cow, hen, sheep, pig, horse; some start out wearing a hat) make their sound when
+- Animals (cow, hen, sheep, pig, horse, duck, cat; some start out wearing a hat) make their sound when
   picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it the held piece only (anything stacked on that piece
   drops to the ground), letting go on its head stacks.
@@ -61,14 +61,16 @@ from it out of committed files: the repo is public.
   whatever sits on their seats; a tap without moving honks; driving through a puddle splashes.
   A swing push always adds to the way it is already moving.
 - Picnic, right between the first garden and the barn so fruit and vegetables are close to the
-  grill: the cow and sheep sit on the blanket. The basket gives cake, corndog, sandwich and cookie
-  in turn; fruit or a vegetable on the grill bakes into a pie. An instrument put on an animal makes
+  grill: the cow and sheep sit on the blanket. The open basket has the next treat (cake, corndog,
+  sandwich, cookie in turn) sitting on top to take; the next one then rises out from inside; fruit or a vegetable on the grill bakes into a pie. An instrument put on an animal makes
   it play a tune (bigger animals lower). The boombox plays song 1, 2, 3, then off, one tap each
   (`audio.playSong`; the loops are stand-ins for real songs).
 - An animal out in the rain puts up an umbrella (its own colour), folded again when the rain
   stops; under a roof (barn, coop, window) it needs none.
-- The farmhouse has two storeys and four windows that open and shut on tap; what sits on a shut
-  sill is hidden. Floating on a puddle, the model ship sails back and forth with a soft motor
+- The farmhouse has two storeys, four windows and a door that open and shut on tap; what sits on
+  a shut sill or in a shut doorway is hidden, and an animal waiting there says hello when opened
+  (the cat starts behind an upstairs shutter). Tapping the chimney starts smoke, tapping again
+  stops it. A bench for two stands in front. Floating on a puddle, the model ship sails back and forth with a soft motor
   (heard only while in sight) and the duck paddles slowly; both face the way they go.
 - A hen fed while sitting in the coop lays an egg, which drops out underneath. The mud puddle
   (`Mud`, a brown `Puddle`) does everything a puddle does; an animal sitting in it gets muddy, and
@@ -106,7 +108,7 @@ from it out of committed files: the repo is public.
 - `src/game.ts`: world, motion, grabbing, placing, drowning, depth-sorted drawing
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
 - `src/objects/`: shared objects (items, fruit, vegetables, hats, animals, stacks, tree, bed,
-  goods, cloud, puddle, bin, barn, stable, swing, windmill, hat machine, vehicles, perch, fields,
+  goods, cloud, puddle, bin, barn, stable, swing, windmill, hat machine, vehicles, perch, bench, boombox, fields,
   decor, picnic, house, coop, mud)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - `src/save.ts`: the scene is saved to localStorage (`Game.snapshot`/`Game.restore`) every 2 s

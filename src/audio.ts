@@ -184,7 +184,7 @@ function voice(v: Voice): void {
   osc.stop(end + 0.02);
 }
 
-export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck';
+export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat';
 
 export function animal(kind: AnimalSound): void {
   switch (kind) {
@@ -204,6 +204,10 @@ export function animal(kind: AnimalSound): void {
       for (const delay of [0, 0.2]) {
         voice({ wave: 'square', from: 420, to: 330, duration: 0.14, volume: 0.25, filter: 900, q: 3, delay });
       }
+      break;
+    case 'cat':
+      voice({ wave: 'sawtooth', from: 520, to: 780, duration: 0.22, volume: 0.22, filter: 1400, q: 2.5 });
+      voice({ wave: 'sawtooth', from: 780, to: 460, duration: 0.4, volume: 0.22, filter: 1600, filterTo: 900, q: 2.5, delay: 0.2 });
       break;
     case 'horse':
       voice({ wave: 'sawtooth', from: 520, to: 280, duration: 0.8, volume: 0.32, filter: 1200, filterTo: 700, q: 1.4, vibrato: [11, 45] });
@@ -316,6 +320,11 @@ export function setMotor(on: boolean): void {
     lfo.start();
   }
   motorGain.gain.setTargetAtTime(on ? 0.09 : 0, ac.currentTime, 0.25);
+}
+
+/** A puff of smoke from the chimney starting or stopping. */
+export function puff(starting: boolean): void {
+  noise(0.35, starting ? 700 : 450, 0.05);
 }
 
 /** Something goes into the bin. */

@@ -1,7 +1,7 @@
 // Farm animals, drawn front-on from rounded shapes. Faces stay simple: two dot
 // eyes and a smile, a mouth that opens for food, and closed happy eyes.
 
-export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck';
+export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat';
 
 interface AnimalLook {
   /** Half the width. */
@@ -18,6 +18,7 @@ export const ANIMAL: Record<AnimalKind, AnimalLook> = {
   hen: { radius: 36, height: 72, mouthY: -8 },
   horse: { radius: 54, height: 124, mouthY: 12 },
   duck: { radius: 36, height: 62, mouthY: -10 },
+  cat: { radius: 40, height: 76, mouthY: -4 },
 };
 
 export interface Face {
@@ -70,6 +71,7 @@ const EYES: Record<AnimalKind, [number, number]> = {
   hen: [9, -20],
   horse: [14, -34],
   duck: [9, -24],
+  cat: [11, -18],
 };
 
 function drawEyes(
@@ -309,6 +311,68 @@ const BODY: Record<AnimalKind, (ctx: CanvasRenderingContext2D) => void> = {
       [-9, 2, 3],
       [9, 2, 3],
     ]);
+  },
+
+  cat(ctx) {
+    // Tail curling up beside it.
+    ctx.strokeStyle = '#e59a52';
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(24, 30);
+    ctx.quadraticCurveTo(52, 26, 46, -4);
+    ctx.stroke();
+    // Body and head.
+    blob(ctx, '#f2b06a', [
+      [0, 18, 28],
+      [0, -12, 25],
+    ]);
+    // Ears.
+    ctx.fillStyle = '#f2b06a';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 22, -24);
+      ctx.lineTo(side * 20, -46);
+      ctx.lineTo(side * 6, -34);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f6c9b8';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 19, -29);
+      ctx.lineTo(side * 18, -40);
+      ctx.lineTo(side * 10, -33);
+      ctx.fill();
+    }
+    // Stripes on the head, a pale chest and paws.
+    ctx.fillStyle = '#e59a52';
+    for (const dx of [-7, 0, 7]) {
+      ctx.beginPath();
+      ctx.roundRect(dx - 2, -36, 4, 10, 2);
+      ctx.fill();
+    }
+    blob(ctx, '#fbe3c4', [
+      [0, 20, 15],
+      [-12, 40, 8],
+      [12, 40, 8],
+    ]);
+    // Nose and whiskers.
+    ctx.fillStyle = '#e8857a';
+    ctx.beginPath();
+    ctx.moveTo(-4, -10);
+    ctx.lineTo(4, -10);
+    ctx.lineTo(0, -6);
+    ctx.fill();
+    ctx.strokeStyle = '#c98552';
+    ctx.lineWidth = 1.5;
+    for (const side of [-1, 1]) {
+      for (const dy of [-8, -3]) {
+        ctx.beginPath();
+        ctx.moveTo(side * 10, dy);
+        ctx.lineTo(side * 26, dy - 3 + (dy + 5) * 0.4);
+        ctx.stroke();
+      }
+    }
   },
 
   duck(ctx) {

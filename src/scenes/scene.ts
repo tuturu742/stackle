@@ -13,9 +13,9 @@ export type ObjectDef =
   | { type: 'puddle'; x: number; width: number }
   /** `depth` is the ground line it stands on; larger is nearer the viewer. */
   /** `home`: where it starts out, floating in the puddle (or mud) under it, sitting in the coop or on a farmhouse sill. */
-  | { type: 'animal'; x: number; animal: AnimalKind; depth: number; hat?: HatKind; home?: Home }
+  | { type: 'animal'; x: number; animal: AnimalKind; depth: number; hat?: HatKind; home?: Home; seat?: number }
   /** A toy that is never lost, like an animal: the model ship, an instrument. */
-  | { type: 'toy'; x: number; toy: ToyKind; depth: number; home?: Home }
+  | { type: 'toy'; x: number; toy: ToyKind; depth: number; home?: Home; seat?: number }
   /** A raised bed with one plot per vegetable listed. */
   | { type: 'bed'; x: number; width: number; veg: VegKind[] }
   /** A rain cloud in the sky; `y` is its height on screen. */
@@ -43,9 +43,12 @@ export type ObjectDef =
   /** The farmhouse, with two windows. */
   | { type: 'house'; x: number }
   | { type: 'coop'; x: number }
+  /** A bench for two. */
+  | { type: 'bench'; x: number }
   | { type: 'mud'; x: number; width: number };
 
 export type Home = 'pond' | 'coop' | 'house';
+// With a `home` of coop or house, `seat` picks the seat (house: windows 0-3, the doorway 4), shut or not.
 
 export interface SceneDef {
   /** Scene width in world units. One screen is 1024. */

@@ -35,6 +35,8 @@ export interface Saved {
   baskets?: number[];
   /** Which farmhouse windows are open. */
   windows?: boolean[][];
+  /** Which farmhouse doors are open. */
+  doors?: boolean[];
 }
 
 const KEY = 'stackle.scene';

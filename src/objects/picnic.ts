@@ -1,6 +1,6 @@
 import { GROUND_Y } from '../config';
 import { settings } from '../settings';
-import { drawGood, TREATS, type TreatKind } from './goods';
+import { drawGood, GOODS, TREATS, type TreatKind } from './goods';
 import { isFruit, isVeg, type Item } from './item';
 import type { Perch } from './perch';
 
@@ -104,29 +104,50 @@ export class Picnic {
   }
 }
 
-/** The picnic basket: tap it and a treat pops out, always in the same order. */
+/** Seconds for the next treat to rise out of the basket once one is taken. */
+const RISE_SECONDS = 0.45;
+
+/**
+ * The picnic basket, open at the top. A treat sits on it, ready to take; once
+ * it is taken the next one rises out from inside, always in the same order.
+ */
 export class Basket {
   readonly depth = GROUND_Y + 22;
   private next = 0;
-  private lid = 0;
+  /** The treat on top: 0 still inside, 1 sitting up there ready to take. */
+  private up = 1;
 
   constructor(readonly x: number) {}
 
+  private get top(): number {
+    return this.depth - 56;
+  }
+
+  /** Where the treat on top has its centre, and its bottom when ready. */
+  private treatY(kind: TreatKind, up: number): number {
+    const h = GOODS[kind].height;
+    return this.top + 6 - h / 2 + (1 - up) * (h + 10);
+  }
+
   hits(px: number, py: number, slop: number): boolean {
-    return Math.abs(px - this.x) <= 50 + slop && py >= this.depth - 90 - slop && py <= this.depth + slop;
+    return Math.abs(px - this.x) <= 50 + slop && py >= this.top - slop && py <= this.depth + slop;
   }
 
-  /** The treat that comes out next, and where it starts. */
-  give(): { kind: TreatKind; x: number; bottom: number } {
+  /** The treat on top, if it is up and under the finger. */
+  treatAt(px: number, py: number, slop: number): { dist: number } | null {
+    if (this.up < 1) return null;
     const kind = TREATS[this.next];
-    this.next = (this.next + 1) % TREATS.length;
-    this.lid = 1;
-    return { kind, x: this.x, bottom: this.depth - 60 };
+    const dist = Math.hypot(px - this.x, py - this.treatY(kind, 1));
+    return dist <= GOODS[kind].radius + slop ? { dist } : null;
   }
 
-  /** Tapped with enough treats out already: the lid just lifts. */
-  peek(): void {
-    this.lid = 1;
+  /** Take the treat on top; the next one starts rising. */
+  take(): { kind: TreatKind; x: number; bottom: number } {
+    const kind = TREATS[this.next];
+    const bottom = this.treatY(kind, 1) + GOODS[kind].height / 2;
+    this.next = (this.next + 1) % TREATS.length;
+    this.up = 0;
+    return { kind, x: this.x, bottom };
   }
 
   get turn(): number {
@@ -137,44 +158,57 @@ export class Basket {
     this.next = n % TREATS.length;
   }
 
-  update(dt: number): void {
-    this.lid = Math.max(0, this.lid - dt * 2.5);
+  /** The next treat rises only while there are not too many out already. Returns true as it arrives. */
+  update(dt: number, canGive: boolean): boolean {
+    if (this.up >= 1 || !canGive) return false;
+    this.up = Math.min(1, this.up + dt / RISE_SECONDS);
+    return this.up >= 1;
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
-    const top = this.depth - 56;
-    // Handle.
+    const top = this.top;
+    // Handle, and the inside behind the treat.
     ctx.strokeStyle = '#a7724c';
     ctx.lineWidth = 8;
     ctx.beginPath();
     ctx.arc(this.x, top, 34, Math.PI, Math.PI * 2);
     ctx.stroke();
+    ctx.fillStyle = '#8d5c4f';
+    ctx.beginPath();
+    ctx.ellipse(this.x, top, 48, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // The treat on top, coming up out of the basket.
+    if (this.up > 0) {
+      const kind = TREATS[this.next];
+      const t = 1 - Math.pow(1 - this.up, 3);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(this.x - 80, top - 200, 160, 200);
+      ctx.clip();
+      drawGood(ctx, kind, this.x, this.treatY(kind, t), 0, 1, 1);
+      ctx.restore();
+    }
+    // Front of the basket.
     ctx.fillStyle = '#c98c5e';
     ctx.beginPath();
     ctx.moveTo(this.x - 48, top);
-    ctx.lineTo(this.x + 48, top);
+    ctx.quadraticCurveTo(this.x, top + 10, this.x + 48, top);
     ctx.lineTo(this.x + 40, this.depth);
     ctx.lineTo(this.x - 40, this.depth);
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle = '#b77a4f';
     ctx.lineWidth = 3;
-    for (const y of [top + 16, top + 34]) {
+    for (const y of [top + 18, top + 36]) {
       ctx.beginPath();
       ctx.moveTo(this.x - 44, y);
       ctx.lineTo(this.x + 44, y);
       ctx.stroke();
     }
-    // A peek of what is next, under a lid that lifts when tapped.
-    drawGood(ctx, TREATS[this.next], this.x - 10, top - 8, 0, 0.6, 0.6);
-    ctx.save();
-    ctx.translate(this.x + 48, top);
-    ctx.rotate(-Math.sin(this.lid * Math.PI) * 0.6);
     ctx.fillStyle = '#f28b82';
     ctx.beginPath();
-    ctx.roundRect(-100, -10, 104, 12, 6);
+    ctx.roundRect(this.x - 50, top - 3, 100, 9, 4);
     ctx.fill();
-    ctx.restore();
   }
 }
 

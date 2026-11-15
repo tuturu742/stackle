@@ -60,10 +60,13 @@ export const orchard: SceneDef = {
     { type: 'rock', x: 6660, seed: 4 },
     { type: 'bin', x: 6880 },
 
-    // Screen 7: the farmhouse, a model ship on its sill, and a puddle to sail it on.
+    // Screen 7: the farmhouse with a model ship on a sill and a cat behind an upstairs shutter,
+    // a bench in front, and a puddle to sail the ship on.
     { type: 'flowers', x: 7276, seed: 6 },
     { type: 'house', x: 7656 },
     { type: 'toy', x: 7786, toy: 'ship', depth: GROUND_Y + 40, home: 'house' },
+    { type: 'animal', x: 7786, animal: 'cat', depth: GROUND_Y + 40, home: 'house', seat: 3 },
+    { type: 'bench', x: 7480 },
     { type: 'puddle', x: 8056, width: 250 },
 
     // Screen 8: the hat machine and the tractor.

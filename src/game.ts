@@ -22,6 +22,7 @@ import { Bin } from './objects/bin';
 import { Cloud } from './objects/cloud';
 import { Coop } from './objects/coop';
 import { Bird, Decor, FENCE_TOP } from './objects/decor';
+import { Bench } from './objects/bench';
 import { Boombox } from './objects/boombox';
 import { Dispenser } from './objects/dispenser';
 import { CornField, SunflowerField, type Cob } from './objects/fields';
@@ -196,9 +197,10 @@ const UMBRELLA_COLORS: Record<AnimalKind, string> = {
   sheep: '#b39ddb',
   duck: '#f2c14e',
   hen: '#f28b82',
+  cat: '#5fa8a0',
 };
 /** Bigger animals play lower. */
-const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3 };
+const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2 };
 
 export class Game {
   private stacks: Stack[] = [];
@@ -221,6 +223,7 @@ export class Game {
   private baskets: Basket[] = [];
   private grills: Grill[] = [];
   private boomboxes: Boombox[] = [];
+  private benches: Bench[] = [];
   private houses: House[] = [];
   private coops: Coop[] = [];
 
@@ -324,6 +327,9 @@ export class Game {
         case 'grill':
           this.grills.push(new Grill(def.x));
           break;
+        case 'bench':
+          this.benches.push(new Bench(def.x));
+          break;
         case 'boombox':
           this.boomboxes.push(new Boombox(def.x));
           break;
@@ -345,9 +351,9 @@ export class Game {
     for (const def of scene.objects) {
       if (def.type === 'animal') {
         const kinds: ItemKind[] = def.hat ? [def.animal, def.hat] : [def.animal];
-        this.keepers.push({ kind: def.animal, spawn: () => this.placeAtHome(kinds, def.x, def.depth, def.home) });
+        this.keepers.push({ kind: def.animal, spawn: () => this.placeAtHome(kinds, def.x, def.depth, def.home, def.seat) });
       } else if (def.type === 'toy') {
-        this.keepers.push({ kind: def.toy, spawn: () => this.placeAtHome([def.toy], def.x, def.depth, def.home) });
+        this.keepers.push({ kind: def.toy, spawn: () => this.placeAtHome([def.toy], def.x, def.depth, def.home, def.seat) });
       }
     }
     for (const keeper of this.keepers) keeper.spawn();
@@ -369,7 +375,7 @@ export class Game {
   // --- Setting up --------------------------------------------------------
 
   /** Put an animal or toy where it lives: on the ground, floating in the pond, in the coop, on a sill. */
-  private placeAtHome(kinds: ItemKind[], x: number, depth: number, home?: Home): void {
+  private placeAtHome(kinds: ItemKind[], x: number, depth: number, home?: Home, only?: number): void {
     const stack = this.standOnGround(kinds, x, depth);
     if (home === 'pond') {
       const puddle = this.puddles.find((p) => Math.abs(this.delta(x, p.x)) < p.width / 2);
@@ -379,7 +385,7 @@ export class Game {
       for (const perch of perches) {
         for (let seat = 0; seat < perch.seatCount; seat++) {
           if (Math.abs(this.delta(perch.seatX(seat), x)) > 300 || this.taken({ perch, seat })) continue;
-          if (perch.accepts?.(seat, stack.items[0]) === false) continue;
+          if (only !== undefined ? seat !== only : perch.accepts?.(seat, stack.items[0]) === false) continue;
           stack.state = 'anchored';
           stack.anchor = { perch, seat };
           ({ x: stack.x, top: stack.bottom } = anchorPoint(stack.anchor));
@@ -431,7 +437,7 @@ export class Game {
 
   /** Everywhere a stack can sit and move with; saves refer to them by this order. */
   private get perches(): Perch[] {
-    return [...this.vehicles, ...this.swings, ...this.grills, ...this.coops, ...this.houses];
+    return [...this.vehicles, ...this.swings, ...this.grills, ...this.coops, ...this.houses, ...this.benches];
   }
 
   // --- Saving ------------------------------------------------------------
@@ -470,6 +476,7 @@ export class Game {
       dispensers: this.dispensers.map((d) => d.next),
       baskets: this.baskets.map((b) => b.turn),
       windows: this.houses.map((h) => [...h.isOpen]),
+      doors: this.houses.map((h) => h.doorOpen),
     };
   }
 
@@ -491,6 +498,11 @@ export class Game {
       saved.baskets?.forEach((turn, i) => {
         const b = this.baskets[i];
         if (b) b.turn = turn;
+      });
+      saved.doors?.forEach((open, i) => {
+        const house = this.houses[i];
+        if (house && open !== house.doorOpen) house.toggleDoor();
+        house?.update(10);
       });
       saved.windows?.forEach((open, i) => {
         const house = this.houses[i];
@@ -616,6 +628,10 @@ export class Game {
       const hit = bed.plotAt(p.x, p.y, GRAB_SLOP);
       if (hit) offer(hit.dist, () => this.pickVeg(bed, hit.plot));
     }
+    for (const basket of this.baskets) {
+      const hit = basket.treatAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickTreat(basket));
+    }
     for (const field of this.cornfields) {
       const hit = field.cobAt(p.x, p.y, GRAB_SLOP / 2);
       if (hit) offer(hit.dist, () => this.pickCorn(field, hit.cob));
@@ -674,13 +690,21 @@ export class Game {
       audio.playSong(boombox.tap());
       return;
     }
-    const basket = this.baskets.find((b) => b.hits(p.x, p.y, 10));
-    if (basket) return this.unpack(basket);
     for (const house of this.houses) {
+      if (house.chimneyAt(p.x, p.y, 10)) {
+        audio.puff(house.toggleSmoke());
+        return;
+      }
+      if (house.doorAt(p.x, p.y, 6)) {
+        audio.creak(house.toggleDoor());
+        this.greet(house, 4);
+        return;
+      }
       const w = house.windowAt(p.x, p.y, 10);
       if (w === null) continue;
       house.toggle(w);
       audio.shutter();
+      if (house.isOpen[w]) this.greet(house, w);
       return;
     }
     const bird = this.birds.find((b) => b.hits(p.x, p.y, GRAB_SLOP));
@@ -699,6 +723,15 @@ export class Game {
       return;
     }
     this.decor.find((d) => d.hits(p.x, p.y, 10))?.tap();
+  }
+
+  /** Opening a window or door: an animal waiting behind it says hello. */
+  private greet(perch: Perch, seat: number): void {
+    const stack = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === perch && s.anchor.seat === seat);
+    const animal = stack?.items.find((i) => i.animal);
+    if (!animal) return;
+    animal.wake();
+    audio.animal(animal.animal!);
   }
 
   /** How many of each thing that comes back are out in the world (carried, stacked or lying about). */
@@ -732,22 +765,6 @@ export class Game {
     stack.vy = -120;
     this.stacks.push(stack);
     audio.clunk();
-  }
-
-  /** A treat pops up out of the picnic basket, unless enough are out already. */
-  private unpack(basket: Basket): void {
-    if (this.countOut().treats >= TREAT_CAP) {
-      basket.peek();
-      audio.boop();
-      return;
-    }
-    const { kind, x, bottom } = basket.give();
-    const stack = new Stack([new Item(kind)], x, bottom);
-    stack.vx = -60 - 30 * (basket.turn % 3);
-    stack.vy = -380;
-    stack.fixedFloor = basket.depth + 10 + 6 * basket.turn;
-    this.stacks.push(stack);
-    audio.basket();
   }
 
   pointerMove(id: number, cssX: number, cssY: number): void {
@@ -857,6 +874,12 @@ export class Game {
     const item = new Item('corn');
     field.pick(cob);
     return this.picked(item, undefined, cob.x + 12, cob.y + item.height / 2);
+  }
+
+  /** Take the treat sitting on top of the picnic basket. */
+  private pickTreat(basket: Basket): Stack {
+    const { kind, x, bottom } = basket.take();
+    return this.picked(new Item(kind), undefined, x, bottom);
   }
 
   /** Take a bale of hay from the barn floor. */
@@ -1246,11 +1269,10 @@ export class Game {
       ...this.sunfields,
       ...this.decor,
       ...this.picnics,
-      ...this.baskets,
-      ...this.houses,
       ...this.boomboxes,
     ])
       thing.update(dt);
+    for (const house of this.houses) house.update(dt, settings.reduceMotion);
     for (const bird of this.birds) bird.update(dt, this.onScreen(bird.x, 60));
     for (const v of this.vanishing) v.age += dt;
     this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
@@ -1367,6 +1389,7 @@ export class Game {
     for (const bed of this.beds) bed.update(dt, wet, out.veg < VEG_CAP);
     for (const field of this.cornfields) field.update(dt, wet, out.veg < VEG_CAP);
     for (const barn of this.barns) barn.update(dt, out.hay < HAY_CAP);
+    for (const basket of this.baskets) if (basket.update(dt, out.treats < TREAT_CAP)) audio.basket();
     for (const cloud of this.clouds) {
       cloud.update(dt, (x) => {
         const puddle = this.puddles.find((p) => Math.abs(x - p.x) < p.width * 0.4);
@@ -1666,7 +1689,7 @@ export class Game {
         at(h.frontDepth, h.x, 260, () => h.draw(ctx)),
         at(h.frontDepth + 0.05, h.x, 260, () => h.drawShutters(ctx)),
       ]),
-      ...[...this.stables, ...this.dispensers, ...this.coops, ...this.vehicles, ...this.baskets].map((s) =>
+      ...[...this.stables, ...this.dispensers, ...this.coops, ...this.vehicles, ...this.baskets, ...this.benches].map((s) =>
         at(s.depth, s.x, 250, () => s.draw(ctx)),
       ),
       ...[...this.swings, ...this.windmills].map((s) => at(s.depth, s.x, 250, () => s.draw(ctx))),
