@@ -56,6 +56,79 @@
         padding: 0 0 0 14px;
         cursor: pointer;
       }
+      /* Parent controls: opened by holding the top-left corner. Icons only. */
+      #parent {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 28px;
+        background: rgba(40, 60, 70, 0.45);
+        touch-action: none;
+      }
+      #parent[hidden] {
+        display: none;
+      }
+      #parent button {
+        position: relative;
+        width: 112px;
+        height: 112px;
+        border: none;
+        border-radius: 50%;
+        background: #f6f3ec;
+        box-shadow: 0 6px 0 #d8d2c4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        overflow: hidden;
+      }
+      #parent button[aria-pressed='true'] {
+        background: #f2c9bf;
+        box-shadow: 0 6px 0 #d9a89b;
+      }
+      #parent button .off {
+        display: none;
+      }
+      #parent button[aria-pressed='true'] .off {
+        display: inline;
+      }
+      #parent #reset::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: #e9a99a;
+        transform: scaleY(0);
+        transform-origin: bottom;
+      }
+      #parent #reset.holding::before {
+        transform: scaleY(1);
+        transition: transform 2s linear;
+      }
+      #parent svg {
+        position: relative;
+      }
+      /* Fills while the parent-controls corner is held; invisible for the first second. */
+      #hold {
+        position: fixed;
+        width: 84px;
+        height: 84px;
+        margin: -42px 0 0 -42px;
+        border-radius: 50%;
+        border: 6px solid rgba(255, 255, 255, 0.85);
+        box-sizing: border-box;
+        opacity: 0;
+        transform: scale(0.3);
+        pointer-events: none;
+      }
+      #hold.on {
+        opacity: 0.8;
+        transform: scale(1);
+        transition:
+          opacity 0.4s ease 1s,
+          transform 2s linear 1s;
+      }
       canvas {
         position: fixed;
         inset: 0;
@@ -68,10 +141,37 @@
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="hold"></div>
     <div id="start">
       <button type="button" aria-label="Play">
         <svg width="72" height="80" viewBox="0 0 72 80" aria-hidden="true">
           <path d="M8 6 L66 40 L8 74 Z" fill="#ffffff" stroke="#ffffff" stroke-width="10" stroke-linejoin="round" />
+        </svg>
+      </button>
+    </div>
+    <div id="parent" hidden>
+      <button type="button" id="mute" aria-label="Sound" aria-pressed="false">
+        <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true" fill="none" stroke="#4b5560" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 23 H20 L32 12 V48 L20 37 H10 Z" fill="#4b5560" />
+          <path d="M40 22 Q46 30 40 38 M45 16 Q55 30 45 44" />
+          <path class="off" d="M8 8 L52 52" stroke="#c0503f" />
+        </svg>
+      </button>
+      <button type="button" id="motion" aria-label="Reduce motion" aria-pressed="false">
+        <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true" fill="none" stroke="#4b5560" stroke-width="5" stroke-linecap="round">
+          <path d="M8 20 Q16 12 24 20 T40 20 T56 20 M8 34 Q16 26 24 34 T40 34 T56 34" />
+          <path class="off" d="M8 8 L52 52" stroke="#c0503f" />
+        </svg>
+      </button>
+      <button type="button" id="reset" aria-label="Start the farm again (hold)">
+        <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true" fill="none" stroke="#4b5560" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M46 22 A18 18 0 1 0 48 34" />
+          <path d="M46 8 V22 H32" />
+        </svg>
+      </button>
+      <button type="button" id="close" aria-label="Close">
+        <svg width="60" height="60" viewBox="0 0 60 60" aria-hidden="true" fill="none" stroke="#4b5560" stroke-width="6" stroke-linecap="round">
+          <path d="M16 16 L44 44 M44 16 L16 44" />
         </svg>
       </button>
     </div>

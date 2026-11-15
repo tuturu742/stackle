@@ -94,13 +94,13 @@ export class Bed {
     plot.ripeAge = 0;
   }
 
-  update(dt: number, wet: (x: number) => boolean): void {
+  update(dt: number, wet: (x: number) => boolean, canGrow: boolean): void {
     for (const plot of this.plots) {
       if (plot.growth >= 1) {
         plot.ripeAge += dt;
         continue;
       }
-      if (!wet(plot.x)) continue;
+      if (!canGrow || !wet(plot.x)) continue;
       plot.growth = Math.min(1, plot.growth + dt / GROW_SECONDS);
       if (plot.growth === 1) {
         plot.ripeAge = 0;

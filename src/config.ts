@@ -2,7 +2,9 @@
 // this to fit and shows extra sky or ground on other aspect ratios.
 export const SCREEN_W = 1024;
 export const WORLD_H = 768;
-export const GROUND_Y = 640;
+// The ground sits high enough that nothing rests near the bottom edge, where a swipe up
+// leaves the app on iPad.
+export const GROUND_Y = 600;
 
 export const STEP = 1 / 60;
 
@@ -13,7 +15,7 @@ export const GRAB_SLOP = 32;
 // Things dropped from the air land on FALL_FLOOR, just in front of the puddles
 // (whose front edge is at about GROUND_Y + 79).
 export const FALL_FLOOR = GROUND_Y + 88;
-export const FRONT_FLOOR = WORLD_H - 14;
+export const FRONT_FLOOR = WORLD_H - 54;
 /** Letting go with the bottom at least this low counts as putting it on the ground. */
 export const GROUND_BAND = GROUND_Y - 24;
 

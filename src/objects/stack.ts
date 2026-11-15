@@ -1,6 +1,8 @@
 import { GROUND_Y } from '../config';
+import { settings } from '../settings';
 import type { Item } from './item';
-import type { Puddle } from './puddle';
+import type { Perch } from './perch';
+import type { Sink } from './sink';
 import type { Bed, Plot } from './bed';
 import type { Slot, Tree } from './tree';
 
@@ -11,8 +13,8 @@ export interface Shown {
   angle: number;
 }
 
-/** A stack resting on a fruit that hangs on a tree, or on a vegetable in its bed. */
-export type Anchor = { tree: Tree; slot: Slot } | { bed: Bed; plot: Plot };
+/** What a stack can rest on and move with: a tree fruit, a bed vegetable, a perch's seat. */
+export type Anchor = { tree: Tree; slot: Slot } | { bed: Bed; plot: Plot } | { perch: Perch; seat: number };
 
 export type StackState = 'held' | 'falling' | 'resting' | 'anchored';
 
@@ -26,11 +28,18 @@ const MAX_LEAN = 0.6;
  * bending the tower like a stalk, so the items never come apart.
  */
 export class Stack {
+  /** The farm loops round: its width, so moving across the join is not a jump. */
+  static loop = Infinity;
+
   state: StackState = 'falling';
+  /** Floating boats and ducks paddle back and forth: which way, -1 or 1. */
+  paddle = 1;
+  /** An umbrella over an animal out in the rain: 0 closed, 1 open. */
+  umbrella = 0;
   anchor: Anchor | null = null;
-  drowningIn: Puddle | null = null;
-  /** Animals placed on water float instead of drowning. */
-  floatingIn: Puddle | null = null;
+  drowningIn: Sink | null = null;
+  /** Animals placed on water float instead of drowning; on a bin they sit on it. */
+  floatingIn: Sink | null = null;
   /** While drowning, the next item may only go under after this time. */
   nextSinkAt = 0;
 
@@ -87,7 +96,9 @@ export class Stack {
   update(dt: number): void {
     for (const item of this.items) item.update(dt);
 
-    const vx = (this.x - this.lastX) / dt;
+    let dx = this.x - this.lastX;
+    if (Math.abs(dx) > Stack.loop / 2) dx -= Math.sign(dx) * Stack.loop;
+    const vx = dx / dt;
     const ax = (vx - this.lastVx) / dt;
     this.lastX = this.x;
     this.lastVx = vx;
@@ -99,6 +110,7 @@ export class Stack {
     const damping = 2 * 0.2 * Math.sqrt(stiffness);
     this.leanVel += (-stiffness * this.lean - damping * this.leanVel - this.accel * SWAY_GAIN) * dt;
     this.lean = Math.max(-MAX_LEAN, Math.min(MAX_LEAN, this.lean + this.leanVel * dt));
+    if (settings.reduceMotion) this.lean = this.leanVel = 0;
   }
 
   /** Where each item is drawn: the straight tower bent by its current lean. */

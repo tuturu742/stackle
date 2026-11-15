@@ -184,7 +184,7 @@ function voice(v: Voice): void {
   osc.stop(end + 0.02);
 }
 
-export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig';
+export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck';
 
 export function animal(kind: AnimalSound): void {
   switch (kind) {
@@ -199,6 +199,15 @@ export function animal(kind: AnimalSound): void {
         voice({ wave: 'sawtooth', from: 190, to: 260, duration: 0.13, volume: 0.45, filter: 700, q: 3, delay });
         noise(0.1, 600, 0.06, delay);
       }
+      break;
+    case 'duck':
+      for (const delay of [0, 0.2]) {
+        voice({ wave: 'square', from: 420, to: 330, duration: 0.14, volume: 0.25, filter: 900, q: 3, delay });
+      }
+      break;
+    case 'horse':
+      voice({ wave: 'sawtooth', from: 520, to: 280, duration: 0.8, volume: 0.32, filter: 1200, filterTo: 700, q: 1.4, vibrato: [11, 45] });
+      noise(0.12, 500, 0.06, 0.85);
       break;
     case 'hen':
       for (const [delay, from] of [
@@ -277,4 +286,233 @@ export function setRain(on: boolean): void {
     src.start();
   }
   rainGain.gain.setTargetAtTime(on ? 0.12 : 0, ac.currentTime, 0.15);
+}
+
+let motorGain: GainNode | null = null;
+
+/** The model ship's little motor: a soft putt-putt while it sails in sight. */
+export function setMotor(on: boolean): void {
+  const ac = ready();
+  if (!ac || !master) return;
+  if (!motorGain) {
+    const engine = ac.createOscillator();
+    engine.type = 'sawtooth';
+    engine.frequency.value = 58;
+    const low = ac.createBiquadFilter();
+    low.type = 'lowpass';
+    low.frequency.value = 380;
+    // The putt-putt: the engine's loudness pulses quickly.
+    const pulse = ac.createGain();
+    pulse.gain.value = 0.5;
+    const lfo = ac.createOscillator();
+    lfo.frequency.value = 9;
+    const depth = ac.createGain();
+    depth.gain.value = 0.5;
+    lfo.connect(depth).connect(pulse.gain);
+    motorGain = ac.createGain();
+    motorGain.gain.value = 0;
+    engine.connect(low).connect(pulse).connect(motorGain).connect(master);
+    engine.start();
+    lfo.start();
+  }
+  motorGain.gain.setTargetAtTime(on ? 0.09 : 0, ac.currentTime, 0.25);
+}
+
+/** Something goes into the bin. */
+export function gulp(): void {
+  tone(300, 120, 0.12, 0.35);
+  noise(0.06, 500, 0.06);
+}
+
+/** The bin has swallowed a whole pile. */
+export function burp(delay = 0): void {
+  tone(140, 90, 0.22, 0.3, delay);
+  tone(180, 110, 0.12, 0.15, delay + 0.05);
+}
+
+/** The barn doors swing. */
+export function creak(opening: boolean): void {
+  tone(opening ? 220 : 260, opening ? 300 : 180, 0.25, 0.1);
+  noise(0.2, 1200, 0.03);
+}
+
+/** The windmill gets a push. */
+export function whoosh(): void {
+  noise(0.35, 700, 0.12);
+}
+
+/** A tap on a vehicle. */
+export function honk(tractor: boolean): void {
+  if (tractor) {
+    for (let i = 0; i < 3; i++) tone(90, 70, 0.07, 0.3, i * 0.1);
+  } else {
+    tone(880, 860, 0.08, 0.15);
+    tone(880, 860, 0.08, 0.15, 0.12);
+  }
+}
+
+/** The hat machine gives a hat. */
+export function clunk(): void {
+  noise(0.06, 400, 0.15);
+  tone(500, 900, 0.08, 0.25, 0.12);
+}
+
+/** The hat machine is pressed while enough hats are out already. */
+export function boop(): void {
+  tone(330, 300, 0.1, 0.12);
+}
+
+/** The swing gets a push. */
+export function swoosh(): void {
+  noise(0.25, 1000, 0.05);
+}
+
+/** A bird is startled off the fence. */
+export function chirp(): void {
+  tone(2200, 2800, 0.05, 0.08);
+  tone(2400, 3000, 0.05, 0.08, 0.08);
+}
+
+/** A bush is tapped. */
+export function rustle(): void {
+  noise(0.18, 2500, 0.06);
+}
+
+// Pentatonic notes, so any flowers tapped together still sound nice.
+const PENTATONIC = [523, 587, 659, 784, 880, 1047];
+
+/** A flower is tapped: one soft note, the same note for the same flower. */
+export function flowerNote(i: number): void {
+  const f = PENTATONIC[((i % PENTATONIC.length) + PENTATONIC.length) % PENTATONIC.length];
+  tone(f, f, 0.25, 0.1);
+}
+
+/** Something starts cooking on the grill. */
+export function sizzle(): void {
+  noise(0.5, 3500, 0.05);
+}
+
+/** Baked into a pie. */
+export function ding(): void {
+  tone(1320, 1320, 0.3, 0.12);
+  tone(1760, 1760, 0.3, 0.06, 0.02);
+}
+
+/** An egg pops out of the coop. */
+export function eggPop(): void {
+  tone(600, 1000, 0.08, 0.2);
+}
+
+/** An animal steps into mud. */
+export function squelch(): void {
+  noise(0.15, 300, 0.12);
+  tone(160, 90, 0.12, 0.15);
+}
+
+/** A treat comes out of the picnic basket. */
+export function basket(): void {
+  noise(0.08, 1800, 0.05);
+  tone(600, 900, 0.07, 0.2, 0.06);
+}
+
+/** Bunting flutters. */
+export function flutter(): void {
+  noise(0.3, 4000, 0.03);
+}
+
+/** A shutter opens or closes. */
+export function shutter(): void {
+  tone(500, 380, 0.08, 0.12);
+}
+
+const TUNES: Record<string, number[]> = {
+  guitar: [0, 4, 7, 12, 7, 4, 0],
+  trumpet: [0, 2, 4, 7, 4, 7, 12],
+};
+
+/** An animal plays an instrument: a short tune, lower for bigger animals. */
+export function music(instrument: 'drum' | 'guitar' | 'trumpet', pitch: number): void {
+  if (instrument === 'drum') {
+    for (let i = 0; i < 8; i++) {
+      const accent = i % 4 === 0;
+      tone(150 * pitch, 60 * pitch, 0.15, accent ? 0.45 : 0.25, i * 0.25);
+      if (i % 2 === 1) noise(0.06, 3000, 0.05, i * 0.25);
+    }
+    return;
+  }
+  const base = 330 * pitch;
+  TUNES[instrument].forEach((step, i) => {
+    const f = base * Math.pow(2, step / 12);
+    if (instrument === 'guitar') tone(f, f * 0.99, 0.4, 0.18, i * 0.28);
+    else voice({ wave: 'sawtooth', from: f, to: f, duration: 0.24, volume: 0.12, filter: f * 2, q: 1.2, delay: i * 0.28 });
+  });
+}
+
+// --- The boombox: three little song loops, stand-ins until real ones are made.
+
+interface Song {
+  /** Seconds per step (an eighth note). */
+  step: number;
+  /** Melody and bass, one entry per step: semitones above the song's root, or null for a rest. */
+  melody: (number | null)[];
+  bass: (number | null)[];
+  root: number;
+}
+
+const SONGS: Song[] = [
+  {
+    step: 0.25,
+    root: 392,
+    melody: [0, null, 4, null, 7, null, 4, null, 5, null, 9, null, 7, null, null, null, 4, null, 7, null, 12, null, 9, 7, 5, null, 4, null, 0, null, null, null],
+    bass: [-12, null, null, null, -5, null, null, null, -7, null, null, null, -5, null, null, null],
+  },
+  {
+    step: 0.2,
+    root: 440,
+    melody: [0, 2, 4, null, 4, 2, 0, null, 7, null, 7, null, 4, null, null, null, 0, 2, 4, null, 4, 2, 0, null, 2, null, -1, null, 0, null, null, null],
+    bass: [-12, null, -12, null, -17, null, -17, null, -15, null, -15, null, -17, null, -17, null],
+  },
+  {
+    step: 0.3,
+    root: 349,
+    melody: [7, null, null, 4, null, null, 0, null, null, 4, null, null, 5, null, null, 4, null, null, 2, null, null, null, null, null],
+    bass: [-12, null, null, -8, null, null, -5, null, null, -10, null, null],
+  },
+];
+
+let songTimer = 0;
+let songStep = 0;
+let songNext = 0;
+
+/** Play song 1, 2 or 3 on a loop, or 0 for quiet. */
+export function playSong(n: number): void {
+  clearInterval(songTimer);
+  songTimer = 0;
+  const song = SONGS[n - 1];
+  const ac = ready();
+  if (!song || !ac) return;
+  songStep = 0;
+  songNext = ac.currentTime + 0.1;
+  // Notes are scheduled a little ahead, so the beat stays even.
+  songTimer = window.setInterval(() => {
+    const now = ready()?.currentTime;
+    if (now === undefined) return;
+    // After a pause (the app was away), pick the beat up again from now.
+    if (songNext < now - 0.5) songNext = now + 0.05;
+    while (songNext < now + 0.3) {
+      const delay = Math.max(0, songNext - now);
+      const m = song.melody[songStep % song.melody.length];
+      const b = song.bass[songStep % song.bass.length];
+      if (m !== null) {
+        const f = song.root * Math.pow(2, m / 12);
+        tone(f, f, song.step * 1.6, 0.1, delay);
+      }
+      if (b !== null) {
+        const f = song.root * Math.pow(2, b / 12);
+        tone(f, f * 0.98, song.step * 3, 0.12, delay);
+      }
+      songStep++;
+      songNext += song.step;
+    }
+  }, 50);
 }

@@ -1,7 +1,7 @@
 // Farm animals, drawn front-on from rounded shapes. Faces stay simple: two dot
 // eyes and a smile, a mouth that opens for food, and closed happy eyes.
 
-export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig';
+export type AnimalKind = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck';
 
 interface AnimalLook {
   /** Half the width. */
@@ -16,6 +16,8 @@ export const ANIMAL: Record<AnimalKind, AnimalLook> = {
   sheep: { radius: 50, height: 92, mouthY: 14 },
   pig: { radius: 48, height: 84, mouthY: 10 },
   hen: { radius: 36, height: 72, mouthY: -8 },
+  horse: { radius: 54, height: 124, mouthY: 12 },
+  duck: { radius: 36, height: 62, mouthY: -10 },
 };
 
 export interface Face {
@@ -54,6 +56,7 @@ export function drawAnimal(
   const open = face.chew > 0 ? 0.25 + 0.25 * Math.sin(face.chew * 18) : face.asleep ? 0 : face.mouth;
   const ink = kind === 'sheep' ? '#f5efe6' : INK;
   if (kind === 'hen') drawBeak(ctx, look.mouthY, open);
+  else if (kind === 'duck') drawBill(ctx, look.mouthY, open);
   else drawMouth(ctx, look.mouthY, open, ink);
   drawEyes(ctx, EYES[kind], face.asleep ? 'asleep' : face.happy > 0 ? 'happy' : 'open', ink);
   if (face.snore > 0) drawSnoreBubble(ctx, look.radius, look.mouthY, 1 - face.snore / SNORE_SECONDS);
@@ -65,6 +68,8 @@ const EYES: Record<AnimalKind, [number, number]> = {
   sheep: [9, -8],
   pig: [13, -22],
   hen: [9, -20],
+  horse: [14, -34],
+  duck: [9, -24],
 };
 
 function drawEyes(
@@ -141,6 +146,18 @@ function drawBeak(ctx: CanvasRenderingContext2D, y: number, open: number): void 
   ctx.lineTo(6, y + 4 + gap / 2);
   ctx.lineTo(0, y + 10 + gap / 2);
   ctx.closePath();
+  ctx.fill();
+}
+
+function drawBill(ctx: CanvasRenderingContext2D, y: number, open: number): void {
+  const gap = 6 * open;
+  ctx.fillStyle = '#f2a541';
+  ctx.beginPath();
+  ctx.ellipse(0, y - gap / 2, 13, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8923a';
+  ctx.beginPath();
+  ctx.ellipse(0, y + 5 + gap / 2, 10, 4, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -257,6 +274,61 @@ const BODY: Record<AnimalKind, (ctx: CanvasRenderingContext2D) => void> = {
       [-5, -5, 2.5],
       [5, -5, 2.5],
     ]);
+  },
+
+  horse(ctx) {
+    legs(ctx, 22, 26, 62, '#b97a4f', '#5e4136');
+    ctx.fillStyle = '#c98a5c';
+    ctx.beginPath();
+    ctx.roundRect(-50, -6, 100, 48, 24);
+    ctx.fill();
+    // Mane and ears behind the long face.
+    ctx.fillStyle = '#c98a5c';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 12, -58);
+      ctx.lineTo(side * 26, -72);
+      ctx.lineTo(side * 26, -48);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.fillStyle = '#d69a6b';
+    ctx.beginPath();
+    ctx.roundRect(-26, -62, 52, 86, 26);
+    ctx.fill();
+    blob(ctx, '#7a4a35', [
+      [-8, -62, 11],
+      [6, -64, 10],
+      [-2, -54, 9],
+    ]);
+    ctx.fillStyle = '#efcfae';
+    ctx.beginPath();
+    ctx.roundRect(-22, -4, 44, 30, 15);
+    ctx.fill();
+    blob(ctx, '#c4936f', [
+      [-9, 2, 3],
+      [9, 2, 3],
+    ]);
+  },
+
+  duck(ctx) {
+    ctx.fillStyle = '#f2a541';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 12, 29, 9, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#f7f3ea', [
+      [0, 10, 30],
+      [0, -18, 19],
+    ]);
+    ctx.fillStyle = '#ece4d6';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 26, 10, 9, 16, side * -0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#7fb9a0', [[0, -34, 5]]);
   },
 
   hen(ctx) {

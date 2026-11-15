@@ -1,6 +1,6 @@
 // Vegetables from the beds, drawn from rounded shapes like the fruit.
 
-export type VegKind = 'carrot' | 'tomato' | 'cabbage';
+export type VegKind = 'carrot' | 'tomato' | 'cabbage' | 'corn';
 
 interface VegLook {
   /** Half the width. */
@@ -12,6 +12,7 @@ export const VEG: Record<VegKind, VegLook> = {
   carrot: { radius: 20, height: 72 },
   tomato: { radius: 30, height: 56 },
   cabbage: { radius: 34, height: 60 },
+  corn: { radius: 18, height: 66 },
 };
 
 const LEAF = '#6dbb5a';
@@ -93,6 +94,30 @@ const DRAW: Record<VegKind, (ctx: CanvasRenderingContext2D) => void> = {
     ctx.beginPath();
     ctx.roundRect(-2, -28, 4, 8, 2);
     ctx.fill();
+  },
+
+  corn(ctx) {
+    ctx.fillStyle = '#f2cf4e';
+    ctx.beginPath();
+    ctx.ellipse(0, -4, 13, 29, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e3b93a';
+    for (let y = -22; y <= 14; y += 9) {
+      for (const x of [-5, 4]) {
+        ctx.beginPath();
+        ctx.arc(x, y, 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    // Husk leaves wrapped round the bottom.
+    ctx.fillStyle = LEAF;
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(0, 33);
+      ctx.quadraticCurveTo(side * 22, 14, side * 10, -14);
+      ctx.quadraticCurveTo(side * 8, 10, 0, 33);
+      ctx.fill();
+    }
   },
 
   cabbage(ctx) {

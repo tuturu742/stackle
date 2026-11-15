@@ -72,9 +72,12 @@ export class Tree {
     return slot.y - FRUIT[this.fruit].radius * 0.9 * this.scaleOf(slot);
   }
 
-  update(dt: number, wet: (x: number) => boolean): void {
+  /** `canGrow` is false while too much food is out in the world: nothing grows until some is used. */
+  update(dt: number, wet: (x: number) => boolean, canGrow: boolean): void {
     for (const slot of this.slots) {
-      if (slot.growth < 1) {
+      if (slot.growth < 1 && !canGrow) {
+        // Waiting for room.
+      } else if (slot.growth < 1) {
         const speed = wet(slot.x) ? RAIN_BOOST : 1;
         slot.growth = Math.min(1, slot.growth + (dt * speed) / REGROW_SECONDS);
         if (slot.growth === 1) {

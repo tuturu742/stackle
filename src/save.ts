@@ -12,8 +12,10 @@ export interface SavedStack {
   /** Resting on a tree fruit or a bed vegetable, by index. */
   tree?: [number, number];
   bed?: [number, number];
-  /** Floating in this puddle, by index. */
+  /** Floating in a puddle or sitting on a bin, by index: puddles first, then bins. */
   puddle?: number;
+  /** Sitting on a seat (vehicle, swing, grill, coop, sill), by perch index and seat. */
+  perch?: [number, number];
 }
 
 export interface Saved {
@@ -26,10 +28,28 @@ export interface Saved {
   trees: number[][];
   beds: { kind: VegKind; growth: number }[][];
   clouds: [number, number][];
+  vehicles?: number[];
+  /** How far each barn door has slid open. */
+  barns?: number[][];
+  dispensers?: number[];
+  baskets?: number[];
+  /** Which farmhouse windows are open. */
+  windows?: boolean[][];
 }
 
 const KEY = 'stackle.scene';
 let last = '';
+let enabled = true;
+
+/** Forget the farm, so the app opens fresh next time; nothing more is saved until then. */
+export function clear(): void {
+  enabled = false;
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Nothing to forget.
+  }
+}
 
 export function load(): Saved | null {
   try {
@@ -42,6 +62,7 @@ export function load(): Saved | null {
 
 /** Write the scene, only when it changed. */
 export function store(saved: Saved): void {
+  if (!enabled) return;
   const text = JSON.stringify(saved);
   if (text === last) return;
   try {
