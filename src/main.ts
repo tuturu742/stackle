@@ -1,11 +1,14 @@
 import { STEP } from './config';
 import * as audio from './audio';
 import { Game } from './game';
+import * as save from './save';
 import { orchard } from './scenes/orchard';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 const game = new Game(orchard);
+const saved = save.load();
+if (saved) game.restore(saved);
 // Dev builds only: lets browser tests inspect the scene.
 if (import.meta.env.DEV) Object.assign(window, { game });
 
@@ -82,6 +85,20 @@ async function keepAwake(): Promise<void> {
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') void keepAwake();
 });
+
+// --- The farm is remembered on the device: every couple of seconds, and when the app is left.
+
+setInterval(() => save.store(game.snapshot()), 2000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') save.store(game.snapshot());
+});
+window.addEventListener('pagehide', () => save.store(game.snapshot()));
+
+// --- Works offline once installed: the service worker keeps a copy of the app.
+
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 // --- Fixed-step loop: physics always advances in 1/60 s steps.
 

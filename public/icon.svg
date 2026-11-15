@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- A little tower: an apple, a pear and a plum, standing on the grass. -->
+  <rect width="512" height="512" fill="#bfe3f2"/>
+  <ellipse cx="256" cy="560" rx="420" ry="170" fill="#8cc96f"/>
+  <ellipse cx="256" cy="402" rx="88" ry="78" fill="#ef6f5e"/>
+  <ellipse cx="226" cy="372" rx="22" ry="13" fill="#f6a497" transform="rotate(-30 226 372)"/>
+  <ellipse cx="256" cy="268" rx="62" ry="66" fill="#e6d35a"/>
+  <ellipse cx="256" cy="214" rx="40" ry="44" fill="#e6d35a"/>
+  <ellipse cx="236" cy="246" rx="15" ry="10" fill="#f2e594" transform="rotate(-30 236 246)"/>
+  <ellipse cx="256" cy="120" rx="54" ry="52" fill="#9b6cc6"/>
+  <ellipse cx="236" cy="104" rx="13" ry="8" fill="#bd9bdd" transform="rotate(-30 236 104)"/>
+  <rect x="251" y="46" width="10" height="28" rx="5" fill="#8a5a3c"/>
+  <ellipse cx="282" cy="58" rx="22" ry="11" fill="#6dbb5a" transform="rotate(-25 282 58)"/>
+</svg>

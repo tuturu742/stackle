@@ -18,12 +18,13 @@ import { Splashes } from './fx';
 import { SNORE_SECONDS } from './objects/animals';
 import { Bed, type Plot } from './objects/bed';
 import { Cloud } from './objects/cloud';
-import { Item, drawFood, isFruit, sizeOf, type FoodKind } from './objects/item';
+import { Item, drawFood, isFruit, sizeOf, type FoodKind, type ItemKind } from './objects/item';
 import { Puddle } from './objects/puddle';
 import { Stack, type Anchor } from './objects/stack';
 import { Tree, type Slot } from './objects/tree';
 import type { VegKind } from './objects/veg';
-import type { SceneDef } from './scenes/scene';
+import type { Saved, SavedStack } from './save';
+import type { ObjectDef, SceneDef } from './scenes/scene';
 import { Sky } from './sky';
 
 /** The fruit or vegetable a stack rests on. */
@@ -99,6 +100,9 @@ export class Game {
   /** Glide left over after a swipe, in world units per second. */
   private camVx = 0;
   private readonly width: number;
+  /** What the scene's layout looks like, so a save made from another layout keeps only its stacks. */
+  private readonly layout: string;
+  private readonly animalDefs: Extract<ObjectDef, { type: 'animal' }>[] = [];
   private vanishing: Vanishing[] = [];
   private splashes = new Splashes();
   private sky = new Sky();
@@ -117,6 +121,7 @@ export class Game {
 
   constructor(scene: SceneDef) {
     this.width = scene.width;
+    this.layout = JSON.stringify(scene);
     for (const def of scene.objects) {
       switch (def.type) {
         case 'tree':
@@ -131,15 +136,113 @@ export class Game {
         case 'cloud':
           this.clouds.push(new Cloud(def.x, def.y));
           break;
-        case 'animal': {
-          const stack = new Stack([new Item(def.animal)], def.x, def.depth);
-          stack.state = 'resting';
-          stack.floor = def.depth;
-          this.stacks.push(stack);
+        case 'animal':
+          this.animalDefs.push(def);
+          this.standOnGround([def.animal], def.x, def.depth);
           break;
-        }
       }
     }
+  }
+
+  private standOnGround(kinds: ItemKind[], x: number, floor: number): Stack {
+    const items = kinds.map((kind) => new Item(kind));
+    const radius = Math.max(...items.map((i) => i.radius));
+    const stack = new Stack(items, Math.max(radius, Math.min(this.width - radius, x)), floor);
+    stack.state = 'resting';
+    stack.floor = floor;
+    this.stacks.push(stack);
+    return stack;
+  }
+
+  // --- Saving ------------------------------------------------------------
+
+  /** The scene as it would be once everything settles: carried and falling things are put down. */
+  snapshot(): Saved {
+    const stacks: SavedStack[] = [];
+    for (const stack of this.stacks) {
+      let items = stack.items;
+      const water = stack.drowningIn ?? stack.floatingIn;
+      // Drowning food is gone already; an animal in it floats with whatever it carries.
+      if (stack.drowningIn) items = items.slice(Math.max(0, items.findIndex((i) => !i.disposable)));
+      if (stack.drowningIn && items.every((i) => i.disposable)) continue;
+      const saved: SavedStack = { items: items.map((i) => i.kind), x: stack.x, floor: stack.floor };
+      if (water) saved.puddle = this.puddles.indexOf(water);
+      else if (stack.anchor && 'slot' in stack.anchor)
+        saved.tree = [this.trees.indexOf(stack.anchor.tree), stack.anchor.tree.slots.indexOf(stack.anchor.slot)];
+      else if (stack.anchor)
+        saved.bed = [this.beds.indexOf(stack.anchor.bed), stack.anchor.bed.plots.indexOf(stack.anchor.plot)];
+      else if (stack.state === 'held') saved.floor = stack.bottom >= GROUND_BAND ? stack.bottom : FALL_FLOOR;
+      else if (stack.state === 'falling') saved.floor = this.landingFloor(stack);
+      saved.floor = Math.min(FRONT_FLOOR, Math.max(GROUND_Y, saved.floor));
+      stacks.push(saved);
+    }
+    return {
+      version: 1,
+      layout: this.layout,
+      camX: this.camX,
+      night: this.sky.toNight,
+      stacks,
+      trees: this.trees.map((t) => t.slots.map((s) => s.growth)),
+      beds: this.beds.map((b) => b.plots.map((p) => ({ kind: p.kind, growth: p.growth }))),
+      clouds: this.clouds.map((c) => [c.x, c.y]),
+    };
+  }
+
+  /** Open the farm as it was saved. Animals are never lost, even from a save of another layout. */
+  restore(saved: Saved): void {
+    const sameLayout = saved.layout === this.layout;
+    this.stacks = [];
+    for (const s of saved.stacks) {
+      if (!s.items.length) continue;
+      const stack = this.standOnGround(s.items, s.x, s.floor);
+      const puddle = s.puddle !== undefined ? this.puddles[s.puddle] : undefined;
+      const tree = sameLayout && s.tree ? this.trees[s.tree[0]] : undefined;
+      const slot = tree?.slots[s.tree![1]];
+      const bed = sameLayout && s.bed ? this.beds[s.bed[0]] : undefined;
+      const plot = bed?.plots[s.bed![1]];
+      if (puddle && sameLayout) {
+        stack.floatingIn = puddle;
+        stack.x = puddle.floatX(stack.x, stack.radius);
+        stack.bottom = stack.floor = puddle.floatBottom(stack.items[0].height);
+      } else if (tree && slot) {
+        stack.state = 'anchored';
+        stack.anchor = { tree, slot };
+      } else if (bed && plot && plot.growth >= 1) {
+        stack.state = 'anchored';
+        stack.anchor = { bed, plot };
+      } else if (s.puddle !== undefined || s.tree || s.bed) {
+        // Its place is gone in the new layout: it stands on the ground instead.
+        stack.bottom = stack.floor = FALL_FLOOR;
+      }
+      if (stack.anchor) ({ x: stack.x, top: stack.bottom } = anchorPoint(stack.anchor));
+    }
+    if (sameLayout) {
+      saved.trees.forEach((growths, t) =>
+        growths.forEach((growth, i) => {
+          const slot = this.trees[t]?.slots[i];
+          if (slot) slot.growth = growth;
+        }),
+      );
+      saved.beds.forEach((plots, b) =>
+        plots.forEach((p, i) => {
+          const plot = this.beds[b]?.plots[i];
+          if (plot) Object.assign(plot, p);
+        }),
+      );
+      saved.clouds.forEach(([x, y], i) => {
+        const cloud = this.clouds[i];
+        if (cloud) Object.assign(cloud, { x: Math.max(cloud.minX, Math.min(cloud.maxX, x)), y });
+      });
+    }
+    // Every animal of the scene is there: any the save does not have (a new one) stands at home.
+    const have = this.stacks.flatMap((s) => s.items.flatMap((i) => (i.animal ? [i.animal] : [])));
+    for (const def of this.animalDefs) {
+      const i = have.indexOf(def.animal);
+      if (i >= 0) have.splice(i, 1);
+      else this.standOnGround([def.animal], def.x, def.depth);
+    }
+    this.sky.setNight(saved.night);
+    this.setCamera(saved.camX);
   }
 
   resize(cssW: number, cssH: number): void {

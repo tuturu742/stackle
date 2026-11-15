@@ -11,7 +11,8 @@ from it out of committed files: the repo is public.
 
 ## Hard rules
 
-- No network calls, analytics, ads, text, menus, timers, scores or fail states. Ever.
+- No network calls, analytics, ads, text, menus, timers, scores or fail states. Ever. The only
+  fetches are the service worker (`public/sw.js`) loading the app's own files.
 - Calm and predictable: same action, same result. Surprises happen only in response to
   something the child did. Nothing flashes, jumps or makes loud noise unprompted.
 - Forgiving touch: big hit areas (`GRAB_SLOP`), drag from anywhere on an object,
@@ -64,6 +65,10 @@ from it out of committed files: the repo is public.
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
 - `src/objects/`: shared objects (items, fruit, vegetables, animals, stacks, tree, bed, cloud, puddle)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
+- `src/save.ts`: the scene is saved to localStorage (`Game.snapshot`/`Game.restore`) every 2 s
+  and when the app is left. A save from another layout keeps its stacks; animals are never lost.
+- `public/`: manifest, icons (`icon.svg` is the source of the PNGs) and the service worker, which
+  serves a cached copy offline and refreshes it on each online launch.
 - World units: one screen is 1024x768, ground at y=640.
 - In dev builds the game is on `window.game`, so browser tests can inspect `game.stacks`.
 
@@ -74,11 +79,11 @@ from it out of committed files: the repo is public.
 3. Animals: cow, hen, sheep, pig; stack with fruit; feeding through an open mouth. Done.
 4. Day and night. Done.
 5. Long scrolling farm with edge scrolling while carrying. Done.
-6. Rain cloud and vegetable beds; a seven-screen farm with each screen its own place. **Awaiting test.**
+6. Rain cloud and vegetable beds; a seven-screen farm with each screen its own place. Done.
+7. Installable offline app with a saved scene. **Awaiting test.**
 
 Farm roadmap (the parent's goal, in rough order, each slice tested before the next):
 
-- Installable offline app with a saved scene.
 - Lots of interactive farm structures: doors that open, swings, and more.
 - Vehicles animals can sit on.
 - Hats and a hat dispenser; hats stack on animals and can be drowned (moved later by the parent).

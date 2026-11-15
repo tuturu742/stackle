@@ -34,7 +34,7 @@ const STARS = [
 export class Sky {
   /** 0 = full day, 1 = full night. */
   night = 0;
-  private toNight = false;
+  toNight = false;
   private left = 0;
   private width = SCREEN_W;
 
@@ -53,6 +53,12 @@ export class Sky {
 
   hits(x: number, y: number, slop: number): boolean {
     return Math.hypot(x - this.sunX, y - SUN.y) <= SUN.r + slop;
+  }
+
+  /** Straight to day or night, without the fade or the chime, as when a saved scene opens. */
+  setNight(on: boolean): void {
+    this.toNight = on;
+    this.night = on ? 1 : 0;
   }
 
   toggle(): void {

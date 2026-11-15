@@ -17,4 +17,6 @@ Pushing to `main` deploys to GitHub Pages.
 
 ## Install on the iPad
 
-Open the address in Safari, tap Share, then Add to Home Screen.
+Open the address in Safari, tap Share, then Add to Home Screen. After the first launch
+it works offline, and the farm is kept as it was left. Each launch while online picks up
+the newest version.
