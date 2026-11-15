@@ -23,6 +23,17 @@ export class Puddle {
     readonly width: number,
   ) {}
 
+  /** Floating things sit this deep: 10% of their height under the water line. */
+  floatBottom(height: number): number {
+    return this.depth + height * 0.1;
+  }
+
+  /** Keep a floater of this half-width over the water, not the bank. */
+  floatX(x: number, radius: number): number {
+    const reach = Math.max(0, this.width / 2 - radius * 0.8);
+    return Math.max(this.x - reach, Math.min(this.x + reach, x));
+  }
+
   /** Is a bottom edge at this point directly on the water? */
   holds(x: number, bottom: number): boolean {
     return Math.abs(x - this.x) <= this.width * 0.45 && bottom >= this.depth - 36 && bottom <= this.depth + 16;

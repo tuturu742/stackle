@@ -47,10 +47,10 @@ function tone(from: number, to: number, duration: number, volume: number, delay 
   osc.stop(t + duration + 0.02);
 }
 
-function noise(duration: number, frequency: number, volume: number): void {
+function noise(duration: number, frequency: number, volume: number, delay = 0): void {
   const ac = ready();
   if (!ac || !master) return;
-  const t = ac.currentTime;
+  const t = ac.currentTime + delay;
   const buffer = ac.createBuffer(1, Math.ceil(ac.sampleRate * duration), ac.sampleRate);
   const data = buffer.getChannelData(0);
   for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
@@ -102,5 +102,88 @@ export function plock(size: number): void {
   for (let i = 0; i < bubbles; i++) {
     const base = 380 + i * 90;
     tone(base, base * 2.2, 0.05, 0.12, 0.06 + i * 0.07);
+  }
+}
+
+/** Food going down: a few soft crunches. */
+export function munch(): void {
+  noise(0.05, 1800, 0.12);
+  noise(0.05, 1500, 0.1, 0.08);
+}
+
+interface Voice {
+  wave: OscillatorType;
+  from: number;
+  to: number;
+  duration: number;
+  volume: number;
+  /** Band-pass centre, sweeping from `filter` to `filterTo` if given. */
+  filter: number;
+  filterTo?: number;
+  q?: number;
+  /** Wobble in the pitch, as [rate in Hz, depth in Hz]. */
+  vibrato?: [number, number];
+  delay?: number;
+}
+
+// A buzzy oscillator shaped by a filter: enough to suggest an animal's voice.
+function voice(v: Voice): void {
+  const ac = ready();
+  if (!ac || !master) return;
+  const t = ac.currentTime + (v.delay ?? 0);
+  const end = t + v.duration;
+  const osc = ac.createOscillator();
+  osc.type = v.wave;
+  osc.frequency.setValueAtTime(v.from, t);
+  osc.frequency.exponentialRampToValueAtTime(v.to, end);
+  const filter = ac.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.Q.value = v.q ?? 1;
+  filter.frequency.setValueAtTime(v.filter, t);
+  if (v.filterTo) filter.frequency.exponentialRampToValueAtTime(v.filterTo, end);
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(v.volume, t + Math.min(0.06, v.duration / 4));
+  gain.gain.setValueAtTime(v.volume, end - Math.min(0.1, v.duration / 3));
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  osc.connect(filter).connect(gain).connect(master);
+  if (v.vibrato) {
+    const lfo = ac.createOscillator();
+    const depth = ac.createGain();
+    lfo.frequency.value = v.vibrato[0];
+    depth.gain.value = v.vibrato[1];
+    lfo.connect(depth).connect(osc.frequency);
+    lfo.start(t);
+    lfo.stop(end + 0.02);
+  }
+  osc.start(t);
+  osc.stop(end + 0.02);
+}
+
+export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig';
+
+export function animal(kind: AnimalSound): void {
+  switch (kind) {
+    case 'cow':
+      voice({ wave: 'sawtooth', from: 125, to: 100, duration: 0.9, volume: 0.5, filter: 300, filterTo: 700, q: 1.2 });
+      break;
+    case 'sheep':
+      voice({ wave: 'sawtooth', from: 330, to: 300, duration: 0.6, volume: 0.35, filter: 1100, q: 1.5, vibrato: [7, 18] });
+      break;
+    case 'pig':
+      for (const delay of [0, 0.18]) {
+        voice({ wave: 'sawtooth', from: 190, to: 260, duration: 0.13, volume: 0.45, filter: 700, q: 3, delay });
+        noise(0.1, 600, 0.06, delay);
+      }
+      break;
+    case 'hen':
+      for (const [delay, from] of [
+        [0, 760],
+        [0.13, 700],
+        [0.24, 900],
+      ]) {
+        voice({ wave: 'square', from, to: from * 0.7, duration: 0.07, volume: 0.25, filter: 1300, q: 2, delay });
+      }
+      break;
   }
 }

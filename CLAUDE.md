@@ -31,10 +31,14 @@ from it out of committed files: the repo is public.
 - Stack limit: a tower stops at the top of the screen; whatever does not fit breaks off and
   falls beside it as a new stack.
 - The tree does nothing when touched; it only gives fruit.
-- Only regrowable things (fruit, treats, food) are disposable. Characters (animals) can be
-  moved and stacked but never disposed of; every object carries a `disposable` flag.
+- Only regrowable things (fruit, treats, food) are disposable. Animals can be moved and
+  stacked (in the same towers as fruit) but never disposed of; every item carries a
+  `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
+- Animals make their sound when picked up. Carrying food near an animal's mouth opens it;
+  letting go over the open mouth feeds it (one bite per piece), letting go on its head stacks.
 - All art is original, drawn in code: flat rounded shapes, soft palette, no outlines.
-  Never imitate Sago Mini or any other game.
+  `references/` (gitignored) holds screenshots of Sago Mini Farm as inspiration for the
+  kinds of play only. Never copy its characters, art, buildings or scene layouts.
 - Target 60 fps on the iPad 9th gen: keep object counts modest.
 
 ## Layout
@@ -42,20 +46,25 @@ from it out of committed files: the repo is public.
 - `src/main.ts`: canvas, resize, pointer input, wake lock, fixed-step loop
 - `src/game.ts`: world, motion, grabbing, placing, drowning, depth-sorted drawing
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
-- `src/objects/`: shared objects (items, stacks, tree, puddle)
+- `src/objects/`: shared objects (items, fruit, animals, stacks, tree, puddle)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - World units: one screen is 1024x768, ground at y=640.
 - In dev builds the game is on `window.game`, so browser tests can inspect `game.stacks`.
 
 ## Milestones
 
-1. Placement test: one tree, one puddle, pick/carry/place/splash. **Done, awaiting iPad test.**
-2. Stacking and regrowth, bin, stack limit (top falls off at screen height), supply cap,
-   orchard about 5 screens wide with camera panning.
-3. Installable and offline: manifest, icons, service worker with versioned cache, saved scene.
-4. Polish: scaled splashes, sound pass, hidden long-press parent controls (mute, reduce motion).
-5. Winter scene.
-6. Grow from watching him.
+1. Placement test: one tree, one puddle, pick/carry/place/splash. Done.
+2. Stacking: glued towers, depth layers, stack limit, one-by-one drowning. Done.
+3. Animals: cow, hen, sheep, pig; stack with fruit; feeding through an open mouth. **Awaiting test.**
+
+Farm roadmap (the parent's goal, in rough order, each slice tested before the next):
+
+- Long scrolling farm (about 5 screens), drag empty ground to pan.
+- Hats and a hat dispenser; hats stack on animals and can be drowned.
+- Rain cloud you press and drag; vegetable beds grow under the rain, pickable when ready.
+- Vehicles animals can sit on.
+- Lots of interactive farm structures: doors that open, swings, and more.
+- Bin, supply cap, installable offline app with a saved scene, hidden parent controls.
 
 Finish one milestone and stop for a real-device test before starting the next.
 

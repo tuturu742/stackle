@@ -1,5 +1,5 @@
 import { GROUND_Y } from '../config';
-import type { Item } from './fruit';
+import type { Item } from './item';
 import type { Puddle } from './puddle';
 import type { Slot, Tree } from './tree';
 
@@ -31,6 +31,8 @@ export class Stack {
   state: StackState = 'falling';
   anchor: Anchor | null = null;
   drowningIn: Puddle | null = null;
+  /** Animals placed on water float instead of drowning. */
+  floatingIn: Puddle | null = null;
   /** While drowning, the next item may only go under after this time. */
   nextSinkAt = 0;
 

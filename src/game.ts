@@ -15,7 +15,8 @@ import {
 } from './config';
 import * as audio from './audio';
 import { Splashes } from './fx';
-import { Item, drawFruit, type FruitKind } from './objects/fruit';
+import { drawFruit, type FruitKind } from './objects/fruit';
+import { Item } from './objects/item';
 import { Puddle } from './objects/puddle';
 import { Stack, type Anchor } from './objects/stack';
 import { Tree } from './objects/tree';
@@ -31,14 +32,20 @@ interface Hold {
   dy: number;
 }
 
-interface Sinking {
+/** Food on its way into the water or into a mouth. */
+interface Vanishing {
   kind: FruitKind;
   x: number;
   y: number;
   age: number;
+  into: 'water' | 'mouth';
 }
 
 const SINK_SECONDS = 0.3;
+/** Carrying food this close to an animal's mouth makes it open. */
+const MOUTH_OPEN_DIST = 90;
+/** Letting go of food this close to an open mouth feeds the animal. */
+const EAT_DIST = 18;
 /** A drowning tower loses at most one item this often. */
 const DROWN_INTERVAL = 0.3;
 /** A thing that falls onto the ground lands this far in front of what is already there. */
@@ -49,7 +56,7 @@ export class Game {
   private trees: Tree[] = [];
   private puddles: Puddle[] = [];
   private holds = new Map<number, Hold>();
-  private sinking: Sinking[] = [];
+  private vanishing: Vanishing[] = [];
   private splashes = new Splashes();
   private time = 0;
 
@@ -69,6 +76,13 @@ export class Game {
         case 'puddle':
           this.puddles.push(new Puddle(def.x, def.width));
           break;
+        case 'animal': {
+          const stack = new Stack([new Item(def.animal)], def.x, def.depth);
+          stack.state = 'resting';
+          stack.floor = def.depth;
+          this.stacks.push(stack);
+          break;
+        }
       }
     }
   }
@@ -96,7 +110,7 @@ export class Game {
       if (stack.state === 'held') continue;
       stack.shown().forEach((shown, index) => {
         const d = Math.hypot(p.x - shown.x, p.y - shown.y);
-        if (d <= shown.item.radius + GRAB_SLOP && d < bestDist) {
+        if (d <= shown.item.reach + GRAB_SLOP && d < bestDist) {
           best = { stack, index };
           bestDist = d;
         }
@@ -154,6 +168,9 @@ export class Game {
     stack.state = 'held';
     stack.anchor = null;
     stack.drowningIn = null;
+    stack.floatingIn = null;
+    const animal = stack.items.find((i) => i.animal)?.animal;
+    if (animal) audio.animal(animal);
     this.holds.set(id, { stack, x: p.x, y: p.y, dx: stack.x - p.x, dy: stack.bottom - p.y });
   }
 
@@ -173,6 +190,8 @@ export class Game {
   private release(stack: Stack): void {
     const speed = Math.hypot(stack.vx, stack.vy);
     if (speed < PLACE_SPEED) {
+      const eater = this.mouthFor(stack);
+      if (eater && eater.dist <= stack.items[0].radius + EAT_DIST) return this.feed(eater.item, stack);
       const target = this.towerUnder(stack);
       if (target) return this.glue(target, stack);
       const anchor = this.fruitUnder(stack);
@@ -185,6 +204,7 @@ export class Game {
         stack.state = 'falling';
         return;
       }
+      if (puddle) return this.float(stack, puddle);
     } else {
       const k = MAX_RELEASE_SPEED / speed;
       if (k < 1) {
@@ -195,6 +215,49 @@ export class Game {
     stack.fixedFloor =
       stack.bottom >= GROUND_BAND ? Math.min(FRONT_FLOOR, Math.max(GROUND_Y, stack.bottom)) : null;
     stack.state = 'falling';
+  }
+
+  /** An animal at the bottom of a stack floats on the water, slightly sunk in. */
+  private float(stack: Stack, puddle: Puddle): void {
+    stack.floatingIn = puddle;
+    stack.drowningIn = null;
+    stack.fixedFloor = puddle.floatBottom(stack.items[0].height);
+    stack.vx = stack.vy = 0;
+    stack.state = 'falling';
+  }
+
+  /** The animal whose mouth is nearest to a carried pile of food, if close enough. */
+  private mouthFor(food: Stack): { item: Item; dist: number } | null {
+    if (!food.items.every((i) => i.food)) return null;
+    const fx = food.x;
+    const fy = food.bottom - food.items[0].height / 2;
+    let best: { item: Item; dist: number } | null = null;
+    for (const stack of this.stacks) {
+      if (stack === food || stack.state === 'held') continue;
+      for (const s of stack.shown()) {
+        if (!s.item.animal || s.item.chew > 0) continue;
+        const dist = Math.hypot(fx - s.x, fy - (s.y + s.item.mouthY));
+        if (dist < MOUTH_OPEN_DIST && (!best || dist < best.dist)) best = { item: s.item, dist };
+      }
+    }
+    return best;
+  }
+
+  /** The animal eats the whole pile, one bite per piece. */
+  private feed(animal: Item, food: Stack): void {
+    const owner = this.stacks.find((s) => s.items.includes(animal))!;
+    const shown = owner.shown().find((s) => s.item === animal)!;
+    food.items.forEach((item, i) => {
+      this.vanishing.push({
+        kind: item.kind as FruitKind,
+        x: shown.x,
+        y: shown.y + animal.mouthY - i * 6,
+        age: -i * 0.35,
+        into: 'mouth',
+      });
+    });
+    animal.feed(food.items.length);
+    this.removeStack(food);
   }
 
   private towerUnder(stack: Stack): Stack | null {
@@ -288,6 +351,12 @@ export class Game {
     const left = this.camX;
     const right = this.camX + this.viewW;
 
+    for (const stack of this.stacks) for (const item of stack.items) item.wantsFood = false;
+    for (const hold of this.holds.values()) {
+      const eater = this.mouthFor(hold.stack);
+      if (eater) eater.item.wantsFood = true;
+    }
+
     for (const hold of this.holds.values()) {
       const { stack } = hold;
       const x = Math.max(left + stack.radius, Math.min(right - stack.radius, hold.x + hold.dx));
@@ -324,25 +393,32 @@ export class Game {
     for (const stack of this.stacks) stack.update(dt);
     for (const tree of this.trees) tree.update(dt);
     for (const puddle of this.puddles) puddle.update(dt);
-    for (const s of this.sinking) s.age += dt;
-    this.sinking = this.sinking.filter((s) => s.age < SINK_SECONDS);
+    for (const v of this.vanishing) v.age += dt;
+    this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
     this.splashes.update(dt);
   }
 
   private fall(stack: Stack, dt: number, left: number, right: number): void {
     stack.vy += GRAVITY * dt;
     stack.x = Math.max(left + stack.radius, Math.min(right - stack.radius, stack.x + stack.vx * dt));
+    // A floater drifts gently toward open water.
+    if (stack.floatingIn) stack.x += (stack.floatingIn.floatX(stack.x, stack.radius) - stack.x) * Math.min(1, dt * 6);
     stack.bottom += stack.vy * dt;
     stack.floor = this.landingFloor(stack);
     if (stack.bottom < stack.floor) return;
 
     stack.bottom = stack.floor;
     const impact = stack.vy;
-    if (impact > 80) {
+    if (stack.floatingIn) {
+      stack.x = stack.floatingIn.floatX(stack.x, stack.radius);
+      this.splashes.splash(stack.x, stack.floatingIn.surfaceY, 0.4);
+      stack.floatingIn.ripple(stack.x, 1);
+      audio.plop(0.6);
+    } else if (impact > 80) {
       stack.items[0].squash = Math.min(0.3, impact * 0.0004);
       audio.plop(impact / 900);
     }
-    if (impact > 500 && !stack.drowningIn) {
+    if (impact > 500 && !stack.drowningIn && !stack.floatingIn) {
       stack.vy = -impact * 0.25;
       return;
     }
@@ -354,19 +430,18 @@ export class Game {
   /** A tower drowns one item at a time, bottom first; the rest drops in after it. */
   private sinkBottom(stack: Stack, puddle: Puddle): void {
     const first = stack.items.shift()!;
-    this.sinking.push({ kind: first.kind, x: stack.x, y: stack.bottom - first.height / 2, age: 0 });
+    const y = stack.bottom - first.height / 2;
+    this.vanishing.push({ kind: first.kind as FruitKind, x: stack.x, y, age: 0, into: 'water' });
     this.splashes.splash(stack.x, puddle.surfaceY, 1);
     puddle.ripple(stack.x, 1);
     audio.plock(1);
 
     if (stack.items.length === 0) return this.removeStack(stack);
-    if (!stack.items[0].disposable) {
-      stack.drowningIn = null;
-      stack.fixedFloor = null;
-    }
     stack.bottom -= first.height;
     stack.nextSinkAt = this.time + DROWN_INTERVAL;
     stack.state = 'falling';
+    // Animals never drown: the rest of the tower floats on them.
+    if (!stack.items[0].disposable) this.float(stack, puddle);
   }
 
   // --- Drawing -----------------------------------------------------------
@@ -375,8 +450,26 @@ export class Game {
   private depthOf(stack: Stack): number {
     if (stack.state === 'held') return Infinity;
     if (stack.state === 'anchored') return -Infinity;
-    if (stack.drowningIn) return stack.drowningIn.depth + 0.5;
+    const water = stack.drowningIn ?? stack.floatingIn;
+    if (water) return water.depth + 0.5;
     return stack.floor;
+  }
+
+  /** A floating tower bobs gently, its bottom hidden under the water line. */
+  private drawFloating(ctx: CanvasRenderingContext2D, stack: Stack, puddle: Puddle): void {
+    const bob = Math.sin(this.time * 2.2 + stack.x * 0.05) * 2.5;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(stack.x - 400, -2000, 800, 2000 + puddle.depth);
+    ctx.clip();
+    ctx.translate(0, bob);
+    stack.draw(ctx);
+    ctx.restore();
+    ctx.strokeStyle = palette.waterLight;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(stack.x, puddle.depth, stack.radius * 0.95, 6, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   draw(ctx: CanvasRenderingContext2D, dpr: number): void {
@@ -412,12 +505,21 @@ export class Game {
 
     const layers: { depth: number; draw: () => void }[] = [
       ...this.puddles.map((p) => ({ depth: p.depth, draw: () => p.draw(ctx, this.time) })),
-      ...this.stacks.map((s) => ({ depth: this.depthOf(s), draw: () => s.draw(ctx) })),
-      ...this.sinking.map((s) => ({
-        depth: GROUND_Y + 4.6,
+      ...this.stacks.map((s) => ({
+        depth: this.depthOf(s),
         draw: () => {
-          const t = s.age / SINK_SECONDS;
-          drawFruit(ctx, s.kind, s.x, s.y + t * 30, 0, 1 + t * 0.2, 1 - t * 0.7, 1 - t);
+          // Only once it has settled on the water; while falling in it is drawn whole.
+          if (s.floatingIn && s.state === 'resting') this.drawFloating(ctx, s, s.floatingIn);
+          else s.draw(ctx);
+        },
+      })),
+      ...this.vanishing.map((v) => ({
+        depth: v.into === 'water' ? GROUND_Y + 4.6 : Infinity,
+        draw: () => {
+          if (v.age < 0) return;
+          const t = v.age / SINK_SECONDS;
+          if (v.into === 'water') drawFruit(ctx, v.kind, v.x, v.y + t * 30, 0, 1 + t * 0.2, 1 - t * 0.7, 1 - t);
+          else drawFruit(ctx, v.kind, v.x, v.y, 0, 1 - t * 0.8, 1 - t * 0.8, 1 - t);
         },
       })),
     ];

@@ -1,3 +1,4 @@
+import type { AnimalKind } from '../objects/animals';
 import type { FruitKind } from '../objects/fruit';
 
 // A scene is plain data: which objects exist and where. Adding a scene or an
@@ -5,7 +6,9 @@ import type { FruitKind } from '../objects/fruit';
 
 export type ObjectDef =
   | { type: 'tree'; x: number; fruit: FruitKind }
-  | { type: 'puddle'; x: number; width: number };
+  | { type: 'puddle'; x: number; width: number }
+  /** `depth` is the ground line it stands on; larger is nearer the viewer. */
+  | { type: 'animal'; x: number; animal: AnimalKind; depth: number };
 
 export interface SceneDef {
   /** Scene width in world units. One screen is 1024. */

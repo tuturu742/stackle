@@ -14,30 +14,6 @@ export const FRUIT: Record<FruitKind, FruitLook> = {
   plum: { radius: 28, color: '#a07ac4', shine: '#c8b0e0' },
 };
 
-/** Anything that can be picked up, moved and stacked. Stacks own position and motion. */
-export class Item {
-  readonly radius: number;
-  /** Stacked items sit this far apart. */
-  readonly height: number;
-  /** Only regrowable things can go into a puddle or bin. Characters never can. */
-  readonly disposable = true;
-  squash = 0;
-
-  constructor(readonly kind: FruitKind) {
-    this.radius = FRUIT[kind].radius;
-    this.height = this.radius * 1.8;
-  }
-
-  update(dt: number): void {
-    this.squash = Math.max(0, this.squash - dt * 1.5);
-  }
-
-  draw(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number): void {
-    const s = Math.sin(performance.now() / 40) * this.squash;
-    drawFruit(ctx, this.kind, x, y, angle, 1 + this.squash * 0.6 + s * 0.1, 1 - this.squash * 0.6);
-  }
-}
-
 export function drawFruit(
   ctx: CanvasRenderingContext2D,
   kind: FruitKind,
