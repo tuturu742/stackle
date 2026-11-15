@@ -16,13 +16,27 @@ import {
 import * as audio from './audio';
 import { Splashes } from './fx';
 import { SNORE_SECONDS } from './objects/animals';
-import { FRUIT, drawFruit, type FruitKind } from './objects/fruit';
-import { Item } from './objects/item';
+import { Bed, type Plot } from './objects/bed';
+import { Cloud } from './objects/cloud';
+import { Item, drawFood, isFruit, sizeOf, type FoodKind } from './objects/item';
 import { Puddle } from './objects/puddle';
 import { Stack, type Anchor } from './objects/stack';
-import { Tree } from './objects/tree';
+import { Tree, type Slot } from './objects/tree';
+import type { VegKind } from './objects/veg';
 import type { SceneDef } from './scenes/scene';
 import { Sky } from './sky';
+
+/** The fruit or vegetable a stack rests on. */
+function spotOf(anchor: Anchor): Slot | Plot {
+  return 'slot' in anchor ? anchor.slot : anchor.plot;
+}
+
+/** Where a stack resting on that fruit or vegetable stands. */
+function anchorPoint(anchor: Anchor): { x: number; top: number } {
+  return 'slot' in anchor
+    ? { x: anchor.slot.x, top: anchor.tree.fruitTop(anchor.slot) }
+    : { x: anchor.plot.x, top: anchor.bed.vegTop(anchor.plot) };
+}
 
 interface Hold {
   stack: Stack;
@@ -34,9 +48,18 @@ interface Hold {
   dy: number;
 }
 
+/** A finger dragging a rain cloud. */
+interface CloudHold {
+  cloud: Cloud;
+  cssX: number;
+  cssY: number;
+  dx: number;
+  dy: number;
+}
+
 /** Food on its way into the water or into a mouth. */
 interface Vanishing {
-  kind: FruitKind;
+  kind: FoodKind;
   x: number;
   y: number;
   age: number;
@@ -70,6 +93,9 @@ export class Game {
   private holds = new Map<number, Hold>();
   /** Fingers dragging empty ground, panning the world. */
   private pans = new Map<number, { cssX: number; speed: number }>();
+  private beds: Bed[] = [];
+  private clouds: Cloud[] = [];
+  private cloudHolds = new Map<number, CloudHold>();
   /** Glide left over after a swipe, in world units per second. */
   private camVx = 0;
   private readonly width: number;
@@ -98,6 +124,12 @@ export class Game {
           break;
         case 'puddle':
           this.puddles.push(new Puddle(def.x, def.width));
+          break;
+        case 'bed':
+          this.beds.push(new Bed(def.x, def.width, def.veg));
+          break;
+        case 'cloud':
+          this.clouds.push(new Cloud(def.x, def.y));
           break;
         case 'animal': {
           const stack = new Stack([new Item(def.animal)], def.x, def.depth);
@@ -147,7 +179,7 @@ export class Game {
       });
     }
 
-    let bestSlot: Anchor | null = null;
+    let bestSlot: { tree: Tree; slot: Slot } | null = null;
     for (const tree of this.trees) {
       const hit = tree.slotAt(p.x, p.y, GRAB_SLOP);
       if (hit && hit.dist < bestDist) {
@@ -156,11 +188,29 @@ export class Game {
       }
     }
 
-    if (bestSlot) {
+    let bestPlot: { bed: Bed; plot: Plot } | null = null;
+    for (const bed of this.beds) {
+      const hit = bed.plotAt(p.x, p.y, GRAB_SLOP);
+      if (hit && hit.dist < bestDist) {
+        bestPlot = { bed, plot: hit.plot };
+        bestSlot = null;
+        bestDist = hit.dist;
+      }
+    }
+
+    const cloud = this.clouds.find((c) => c.hits(p.x, p.y, GRAB_SLOP) && !c.raining);
+    if (bestPlot) {
+      this.grab(id, this.pickVeg(bestPlot.bed, bestPlot.plot), p);
+    } else if (bestSlot) {
       this.grab(id, this.pick(bestSlot), p);
     } else if (best) {
       const { stack, index } = best as { stack: Stack; index: number };
       this.grab(id, index === 0 ? stack : this.split(stack, index), p);
+    } else if (cloud) {
+      // Holding the cloud makes it rain.
+      cloud.raining = true;
+      this.cloudHolds.set(id, { cloud, cssX, cssY, dx: cloud.x - p.x, dy: cloud.y - p.y });
+      audio.setRain(true);
     } else if (this.sky.hits(p.x, p.y, GRAB_SLOP)) {
       this.sky.toggle();
     } else {
@@ -176,6 +226,11 @@ export class Game {
       hold.cssX = cssX;
       hold.cssY = cssY;
     }
+    const cloudHold = this.cloudHolds.get(id);
+    if (cloudHold) {
+      cloudHold.cssX = cssX;
+      cloudHold.cssY = cssY;
+    }
     const pan = this.pans.get(id);
     if (pan) {
       const dx = (cssX - pan.cssX) / this.scale;
@@ -186,6 +241,12 @@ export class Game {
   }
 
   pointerUp(id: number): void {
+    const cloudHold = this.cloudHolds.get(id);
+    if (cloudHold) {
+      this.cloudHolds.delete(id);
+      cloudHold.cloud.raining = false;
+      audio.setRain(this.clouds.some((c) => c.raining));
+    }
     const pan = this.pans.get(id);
     if (pan) {
       this.pans.delete(id);
@@ -197,13 +258,29 @@ export class Game {
     this.release(hold.stack);
   }
 
+  /** Pulling a ripe vegetable out of its bed also takes any tower resting on it. */
+  private pickVeg(bed: Bed, plot: Plot): Stack {
+    const item = new Item(plot.kind);
+    const resting = this.restingOn(plot);
+    const y = bed.pick(plot);
+    return this.picked(item, resting, plot.x, y + item.height / 2);
+  }
+
   /** Taking a fruit off the tree also takes any tower resting on it. */
-  private pick({ tree, slot }: Anchor): Stack {
+  private pick({ tree, slot }: { tree: Tree; slot: Slot }): Stack {
     const item = new Item(tree.fruit);
-    const resting = this.stacks.find((s) => s.anchor?.slot === slot);
+    const resting = this.restingOn(slot);
     tree.pick(slot);
+    return this.picked(item, resting, slot.x, slot.y + item.height / 2);
+  }
+
+  private restingOn(spot: Slot | Plot): Stack | undefined {
+    return this.stacks.find((s) => s.anchor && spotOf(s.anchor) === spot);
+  }
+
+  private picked(item: Item, resting: Stack | undefined, x: number, bottom: number): Stack {
     audio.pop();
-    const stack = new Stack([item, ...(resting?.items ?? [])], slot.x, slot.y + item.height / 2);
+    const stack = new Stack([item, ...(resting?.items ?? [])], x, bottom);
     if (resting) {
       stack.continueFrom(resting);
       this.removeStack(resting);
@@ -244,8 +321,11 @@ export class Game {
       if (eater && eater.dist <= stack.items[0].radius + EAT_DIST) return this.feed(eater.item, stack);
       const target = this.towerUnder(stack);
       if (target) return this.glue(target, stack);
-      const anchor = this.fruitUnder(stack);
+      const anchor = this.fruitUnder(stack) ?? this.vegUnder(stack);
       if (anchor) return this.rest(stack, anchor);
+      const bed = this.beds.find((b) => b.freePlotAt(stack.x, stack.bottom));
+      const bottom = stack.items[0];
+      if (bed && bottom.food && !isFruit(bottom.kind)) return this.plant(bed, stack);
       const puddle = this.puddles.find((p) => p.holds(stack.x, stack.bottom));
       if (puddle && stack.items[0].disposable) {
         stack.drowningIn = puddle;
@@ -304,7 +384,7 @@ export class Game {
     const shown = owner.shown().find((s) => s.item === animal)!;
     const eaten = food.items.shift()!;
     this.vanishing.push({
-      kind: eaten.kind as FruitKind,
+      kind: eaten.kind as FoodKind,
       x: shown.x,
       y: shown.y + animal.mouthY,
       age: 0,
@@ -337,13 +417,36 @@ export class Game {
   private fruitUnder(stack: Stack): Anchor | null {
     for (const tree of this.trees) {
       for (const slot of tree.slots) {
-        if (slot.growth < 0.15 || this.stacks.some((s) => s.anchor?.slot === slot)) continue;
+        if (slot.growth < 0.15 || this.restingOn(slot)) continue;
         const dx = Math.abs(stack.x - slot.x);
         const dy = Math.abs(stack.bottom - tree.fruitTop(slot));
         if (dx < stack.radius * 0.8 && dy < stack.items[0].height * 0.5) return { tree, slot };
       }
     }
     return null;
+  }
+
+  /** A ripe vegetable in a bed under the stack's bottom, free to stack on. */
+  private vegUnder(stack: Stack): Anchor | null {
+    for (const bed of this.beds) {
+      for (const plot of bed.plots) {
+        if (plot.growth < 1 || this.restingOn(plot)) continue;
+        const dx = Math.abs(stack.x - plot.x);
+        const dy = Math.abs(stack.bottom - bed.vegTop(plot));
+        if (dx < stack.radius * 0.8 && dy < stack.items[0].height * 0.5) return { bed, plot };
+      }
+    }
+    return null;
+  }
+
+  /** The bottom vegetable goes back into the bed, ripe; anything stacked on it stays on top. */
+  private plant(bed: Bed, stack: Stack): void {
+    const plot = bed.freePlotAt(stack.x, stack.bottom)!;
+    const planted = stack.items.shift()!;
+    bed.plant(plot, planted.kind as VegKind);
+    audio.plop(0.5);
+    if (stack.items.length === 0) return this.removeStack(stack);
+    this.rest(stack, { bed, plot });
   }
 
   /** Glue `upper` straight on top of `lower`, so they move as one tower. */
@@ -359,10 +462,11 @@ export class Game {
     this.limitHeight(lower);
   }
 
-  /** Rest a stack on a fruit hanging on the tree, even a growing one. */
+  /** Rest a stack on a fruit hanging on the tree (even a growing one) or a vegetable in its bed. */
   private rest(stack: Stack, anchor: Anchor): void {
     stack.state = 'anchored';
     stack.anchor = anchor;
+    ({ x: stack.x, top: stack.bottom } = anchorPoint(anchor));
     stack.vx = stack.vy = 0;
     stack.items[0].squash = 0.25;
     audio.plop(0.4);
@@ -433,12 +537,9 @@ export class Game {
 
     for (const stack of [...this.stacks]) {
       switch (stack.state) {
-        case 'anchored': {
-          const { tree, slot } = stack.anchor!;
-          stack.x = slot.x;
-          stack.bottom = tree.fruitTop(slot);
+        case 'anchored':
+          ({ x: stack.x, top: stack.bottom } = anchorPoint(stack.anchor!));
           break;
-        }
         case 'falling':
           this.fall(stack, dt, left, right);
           break;
@@ -462,7 +563,7 @@ export class Game {
     }
     this.sky.update(dt);
     this.snoreNow();
-    for (const tree of this.trees) tree.update(dt);
+    this.rain(dt);
     for (const puddle of this.puddles) puddle.update(dt);
     for (const v of this.vanishing) v.age += dt;
     this.vanishing = this.vanishing.filter((v) => v.age < SINK_SECONDS);
@@ -479,12 +580,34 @@ export class Game {
       this.camVx *= Math.exp(-5 * dt);
     }
     const screenW = this.viewW * this.scale;
-    for (const hold of this.holds.values()) {
-      const zone = Math.min(EDGE_SCROLL_ZONE, screenW / 6);
-      if (hold.cssX < zone) x -= EDGE_SCROLL_SPEED * (1 - hold.cssX / zone) * dt;
-      else if (hold.cssX > screenW - zone) x += EDGE_SCROLL_SPEED * (1 - (screenW - hold.cssX) / zone) * dt;
+    const zone = Math.min(EDGE_SCROLL_ZONE, screenW / 6);
+    for (const hold of [...this.holds.values(), ...this.cloudHolds.values()]) {
+      // A cloud at the end of its reach no longer pulls the view along.
+      const cloud = 'cloud' in hold ? hold.cloud : null;
+      if (hold.cssX < zone && !(cloud && cloud.x <= cloud.minX)) x -= EDGE_SCROLL_SPEED * (1 - hold.cssX / zone) * dt;
+      else if (hold.cssX > screenW - zone && !(cloud && cloud.x >= cloud.maxX))
+        x += EDGE_SCROLL_SPEED * (1 - (screenW - hold.cssX) / zone) * dt;
     }
     if (x !== this.camX) this.setCamera(x);
+  }
+
+  /** Move held clouds; rain grows vegetables, speeds up fruit and ripples puddles. */
+  private rain(dt: number): void {
+    for (const hold of this.cloudHolds.values()) {
+      const finger = this.toWorld(hold.cssX, hold.cssY);
+      const { cloud } = hold;
+      cloud.x = Math.max(0, cloud.minX, Math.min(this.width, cloud.maxX, finger.x + hold.dx));
+      cloud.y = Math.max(70, Math.min(300, finger.y + hold.dy));
+    }
+    const wet = (x: number) => this.clouds.some((c) => c.wets(x));
+    for (const tree of this.trees) tree.update(dt, wet);
+    for (const bed of this.beds) bed.update(dt, wet);
+    for (const cloud of this.clouds) {
+      cloud.update(dt, (x) => {
+        const puddle = this.puddles.find((p) => Math.abs(x - p.x) < p.width * 0.4);
+        if (puddle && Math.random() < 0.15) puddle.ripple(x, 0.2);
+      });
+    }
   }
 
   /** Deep in the night, now and then one sleeping animal snores. */
@@ -535,7 +658,7 @@ export class Game {
     const first = stack.items.shift()!;
     const y = stack.bottom - first.height / 2;
     this.vanishing.push({
-      kind: first.kind as FruitKind,
+      kind: first.kind as FoodKind,
       x: stack.x,
       y,
       age: 0,
@@ -561,7 +684,8 @@ export class Game {
   /** Drawing order: further back first. */
   private depthOf(stack: Stack): number {
     if (stack.state === 'held') return Infinity;
-    if (stack.state === 'anchored') return -Infinity;
+    // On a tree: behind everything on the ground. In a bed: just in front of it.
+    if (stack.anchor) return 'bed' in stack.anchor ? stack.anchor.bed.depth + 0.1 : -Infinity;
     const water = stack.drowningIn ?? stack.floatingIn;
     if (water) return water.depth + 0.5;
     return stack.floor;
@@ -573,12 +697,12 @@ export class Game {
    */
   private drawSinking(ctx: CanvasRenderingContext2D, v: Vanishing, t: number): void {
     const waterline = v.waterline!;
-    const r = FRUIT[v.kind].radius;
+    const r = sizeOf(v.kind).radius;
     ctx.save();
     ctx.beginPath();
     ctx.rect(v.x - r * 2, waterline - 400, r * 4, 400);
     ctx.clip();
-    drawFruit(ctx, v.kind, v.x, v.y + v.drop! * t * t, 0, 1, 1);
+    drawFood(ctx, v.kind, v.x, v.y + v.drop! * t * t, 0, 1, 1);
     ctx.restore();
     ctx.strokeStyle = palette.waterLight;
     ctx.lineWidth = 3;
@@ -640,6 +764,7 @@ export class Game {
 
     const layers: { depth: number; draw: () => void }[] = [
       ...this.puddles.map((p) => ({ depth: p.depth, draw: () => p.draw(ctx, this.time) })),
+      ...this.beds.map((b) => ({ depth: b.depth, draw: () => b.draw(ctx) })),
       ...this.stacks.map((s) => ({
         depth: this.depthOf(s),
         draw: () => {
@@ -654,13 +779,14 @@ export class Game {
           if (v.age < 0) return;
           const t = v.age / SINK_SECONDS;
           if (v.into === 'water') this.drawSinking(ctx, v, t);
-          else drawFruit(ctx, v.kind, v.x, v.y, 0, 1 - t * 0.8, 1 - t * 0.8, 1 - t);
+          else drawFood(ctx, v.kind, v.x, v.y, 0, 1 - t * 0.8, 1 - t * 0.8, 1 - t);
         },
       })),
     ];
     layers.sort((a, b) => a.depth - b.depth);
     for (const layer of layers) layer.draw();
 
+    for (const cloud of this.clouds) cloud.draw(ctx);
     this.splashes.draw(ctx);
 
     if (night) {

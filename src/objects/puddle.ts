@@ -84,7 +84,8 @@ export class Puddle {
     for (const r of this.ripples) {
       const t = r.age / 1.4;
       ctx.globalAlpha = (1 - t) * 0.9;
-      const w = 12 + t * rx * (0.6 + 0.2 * r.size);
+      // Big splashes ripple across the puddle; raindrops make small rings.
+      const w = 12 + t * Math.min(rx * 0.9, 30 + 100 * r.size);
       ctx.beginPath();
       ctx.ellipse(r.x, cy, w, (w * ry) / rx, 0, 0, Math.PI * 2);
       ctx.stroke();

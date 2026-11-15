@@ -1,14 +1,41 @@
 import * as audio from '../audio';
 import { ANIMAL, drawAnimal, type AnimalKind } from './animals';
 import { FRUIT, drawFruit, type FruitKind } from './fruit';
+import { VEG, drawVeg, type VegKind } from './veg';
 
-export type ItemKind = FruitKind | AnimalKind;
+/** Things that grow back: fruit from trees, vegetables from beds. */
+export type FoodKind = FruitKind | VegKind;
+export type ItemKind = FoodKind | AnimalKind;
 
 /** Seconds per bite while an animal eats. */
 const BITE = 0.35;
 
 export function isFruit(kind: ItemKind): kind is FruitKind {
   return kind in FRUIT;
+}
+
+export function isFood(kind: ItemKind): kind is FoodKind {
+  return kind in FRUIT || kind in VEG;
+}
+
+/** Half-width and height of a piece of food. */
+export function sizeOf(kind: FoodKind): { radius: number; height: number } {
+  if (isFruit(kind)) return { radius: FRUIT[kind].radius, height: FRUIT[kind].radius * 1.8 };
+  return VEG[kind];
+}
+
+export function drawFood(
+  ctx: CanvasRenderingContext2D,
+  kind: FoodKind,
+  x: number,
+  y: number,
+  angle: number,
+  scaleX: number,
+  scaleY: number,
+  alpha = 1,
+): void {
+  if (isFruit(kind)) drawFruit(ctx, kind, x, y, angle, scaleX, scaleY, alpha);
+  else drawVeg(ctx, kind, x, y, angle, scaleX, scaleY, alpha);
 }
 
 /** Anything that can be picked up, moved and stacked. Stacks own position and motion. */
@@ -33,9 +60,8 @@ export class Item {
   private awake = 0;
 
   constructor(readonly kind: ItemKind) {
-    if (isFruit(kind)) {
-      this.radius = FRUIT[kind].radius;
-      this.height = this.radius * 1.8;
+    if (isFood(kind)) {
+      ({ radius: this.radius, height: this.height } = sizeOf(kind));
       this.disposable = this.food = true;
       this.animal = null;
     } else {
@@ -98,6 +124,6 @@ export class Item {
     const sx = 1 + this.squash * 0.6 + s * 0.1;
     const sy = 1 - this.squash * 0.6;
     if (this.animal) drawAnimal(ctx, this.animal, x, y, angle, sx, sy, this);
-    else drawFruit(ctx, this.kind as FruitKind, x, y, angle, sx, sy);
+    else drawFood(ctx, this.kind as FoodKind, x, y, angle, sx, sy);
   }
 }

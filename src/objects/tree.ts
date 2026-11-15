@@ -15,6 +15,8 @@ export interface Slot {
 /** Growing fruit stays clearly small; it only reaches full size once it can be picked. */
 const UNRIPE_MAX_SCALE = 0.6;
 const RIPE_POP_SECONDS = 0.3;
+/** Rain makes fruit grow back this many times faster. */
+const RAIN_BOOST = 3;
 
 // Fruit positions relative to the trunk base, low enough to reach easily.
 const SLOT_OFFSETS = [
@@ -70,10 +72,11 @@ export class Tree {
     return slot.y - FRUIT[this.fruit].radius * 0.9 * this.scaleOf(slot);
   }
 
-  update(dt: number): void {
+  update(dt: number, wet: (x: number) => boolean): void {
     for (const slot of this.slots) {
       if (slot.growth < 1) {
-        slot.growth = Math.min(1, slot.growth + dt / REGROW_SECONDS);
+        const speed = wet(slot.x) ? RAIN_BOOST : 1;
+        slot.growth = Math.min(1, slot.growth + (dt * speed) / REGROW_SECONDS);
         if (slot.growth === 1) {
           slot.wobble = 1;
           slot.ripeAge = 0;

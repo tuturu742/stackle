@@ -19,15 +19,17 @@ from it out of committed files: the repo is public.
 - The ground has depth: each stack rests on a floor line, and a larger line is nearer the
   viewer and drawn in front. Stacks never collide with each other.
 - Letting go decides everything (`Game.release`). Placed gently (slow release):
-  - on the top of a tower or on a fruit hanging on a tree (even a growing one), it glues on
-    straight;
+  - on the top of a tower, on a fruit hanging on a tree (even a growing one) or on a ripe
+    vegetable in its bed, it glues on straight;
+  - a vegetable on an empty or growing bed plot is planted there, ripe again; anything stacked
+    on it stays on top;
   - directly on a puddle's water (or a bin's opening), it drowns one item at a time, bottom first.
   Otherwise: let go low on the ground, it stays at that depth; let go in the air, it falls and
   lands on `FALL_FLOOR` (just in front of the puddles), in front of anything it falls past.
   Falling things never join a tower. No aim assist.
 - Towers never tumble; sway while carried is drawn only (a damped spring), so the connection
   never breaks. Grabbing the bottom item lifts the whole tower; grabbing a higher item splits
-  it, taking that item and everything above. Picking a tree fruit takes the tower on it too.
+  it, taking that item and everything above. Picking a tree fruit or bed vegetable takes the tower on it too.
 - Stack limit: a tower stops at the top of the screen; whatever does not fit breaks off and
   falls beside it as a new stack.
 - The tree does nothing when touched; it only gives fruit.
@@ -37,9 +39,16 @@ from it out of committed files: the repo is public.
 - Animals make their sound when picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it the held piece only (anything stacked on that piece
   drops to the ground), letting go on its head stacks.
-- The farm is a long scene (`SceneDef.width`, five screens now). Dragging empty ground or sky
+- The farm is a long scene (`SceneDef.width`, seven screens now). Each screen is its
+  own place, like the references: repeat a kind of thing rarely and far apart, and grow the
+  farm as new things arrive rather than padding it with copies. Dragging empty ground or sky
   pans; a swipe glides a little (capped), a resting finger stops it. Carrying something to the
   screen edge scrolls the world. Sun, moon and stars stay fixed on screen.
+- Rain: press and hold a cloud to make it rain under it, drag to move it (edge-scrolls too),
+  at most one screen from its bed. A picked plot regrows a random vegetable.
+  Vegetable beds regrow picked plots only while rained on; rain also makes fruit regrow 3x
+  faster and ripples puddles. Growing fruit and vegetables look clearly unripe (small,
+  green, mostly hidden in soil) and pop to full size only when pickable.
 - Tapping the sun brings night (`src/sky.ts`), tapping the moon brings day. At night animals
   sleep; one at a time snores quietly with a bubble every few seconds. Holding an animal or
   offering it food keeps it awake for a little while.
@@ -53,7 +62,7 @@ from it out of committed files: the repo is public.
 - `src/main.ts`: canvas, resize, pointer input, wake lock, fixed-step loop
 - `src/game.ts`: world, motion, grabbing, placing, drowning, depth-sorted drawing
 - `src/scenes/`: one file per scene, defined as data (`SceneDef`)
-- `src/objects/`: shared objects (items, fruit, animals, stacks, tree, puddle)
+- `src/objects/`: shared objects (items, fruit, vegetables, animals, stacks, tree, bed, cloud, puddle)
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - World units: one screen is 1024x768, ground at y=640.
 - In dev builds the game is on `window.game`, so browser tests can inspect `game.stacks`.
@@ -64,15 +73,16 @@ from it out of committed files: the repo is public.
 2. Stacking: glued towers, depth layers, stack limit, one-by-one drowning. Done.
 3. Animals: cow, hen, sheep, pig; stack with fruit; feeding through an open mouth. Done.
 4. Day and night. Done.
-5. Long scrolling farm, five screens, edge scrolling while carrying. **Awaiting test.**
+5. Long scrolling farm with edge scrolling while carrying. Done.
+6. Rain cloud and vegetable beds; a seven-screen farm with each screen its own place. **Awaiting test.**
 
 Farm roadmap (the parent's goal, in rough order, each slice tested before the next):
 
-- Hats and a hat dispenser; hats stack on animals and can be drowned.
-- Rain cloud you press and drag; vegetable beds grow under the rain, pickable when ready.
-- Vehicles animals can sit on.
+- Installable offline app with a saved scene.
 - Lots of interactive farm structures: doors that open, swings, and more.
-- Bin, supply cap, installable offline app with a saved scene, hidden parent controls.
+- Vehicles animals can sit on.
+- Hats and a hat dispenser; hats stack on animals and can be drowned (moved later by the parent).
+- Bin, supply cap, hidden parent controls.
 
 Finish one milestone and stop for a real-device test before starting the next.
 

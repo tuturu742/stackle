@@ -1,6 +1,7 @@
 import { GROUND_Y } from '../config';
 import type { Item } from './item';
 import type { Puddle } from './puddle';
+import type { Bed, Plot } from './bed';
 import type { Slot, Tree } from './tree';
 
 export interface Shown {
@@ -10,11 +11,8 @@ export interface Shown {
   angle: number;
 }
 
-/** A stack resting on a fruit that hangs on a tree. */
-export interface Anchor {
-  tree: Tree;
-  slot: Slot;
-}
+/** A stack resting on a fruit that hangs on a tree, or on a vegetable in its bed. */
+export type Anchor = { tree: Tree; slot: Slot } | { bed: Bed; plot: Plot };
 
 export type StackState = 'held' | 'falling' | 'resting' | 'anchored';
 
