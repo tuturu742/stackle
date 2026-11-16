@@ -309,32 +309,29 @@ export function snore(): void {
   lfo.stop(t + duration);
 }
 
-let rainGain: GainNode | null = null;
+/** Notes the raindrops plink on: a calm pentatonic run, so the drops always sound together. */
+const DROP_NOTES = [784, 880, 1047, 1175, 1319, 1568];
+let raining = false;
+let rainTimer: ReturnType<typeof setTimeout> | null = null;
 
-/** A soft, steady patter while any cloud is raining; fades in and out. */
+/** One soft drop, like water dripping into a glass: a quick gentle plink, never a hiss. */
+function drop(): void {
+  const f = DROP_NOTES[Math.floor(Math.random() * DROP_NOTES.length)];
+  tone(f, f * 1.25, 0.09, 0.03);
+  tone(f * 2, f * 2.4, 0.05, 0.008);
+}
+
+/** While any cloud is raining, a few soft plinks a second, unevenly spaced like real drops. */
 export function setRain(on: boolean): void {
-  const ac = ready();
-  if (!ac || !master) return;
-  if (!rainGain) {
-    const seconds = 2;
-    const buffer = ac.createBuffer(1, ac.sampleRate * seconds, ac.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const src = ac.createBufferSource();
-    src.buffer = buffer;
-    src.loop = true;
-    const low = ac.createBiquadFilter();
-    low.type = 'lowpass';
-    low.frequency.value = 2500;
-    const high = ac.createBiquadFilter();
-    high.type = 'highpass';
-    high.frequency.value = 500;
-    rainGain = ac.createGain();
-    rainGain.gain.value = 0;
-    src.connect(low).connect(high).connect(rainGain).connect(master);
-    src.start();
-  }
-  rainGain.gain.setTargetAtTime(on ? 0.12 : 0, ac.currentTime, 0.15);
+  raining = on;
+  if (!on || rainTimer) return;
+  const next = () => {
+    rainTimer = null;
+    if (!raining) return;
+    drop();
+    rainTimer = setTimeout(next, 140 + Math.random() * 260);
+  };
+  next();
 }
 
 let motorGain: GainNode | null = null;

@@ -105,6 +105,9 @@ from it out of committed files: the repo is public.
   farm as new things arrive rather than padding it with copies. Dragging empty ground or sky
   pans; a swipe glides a little (capped), a resting finger stops it. Carrying something to the
   screen edge scrolls the world. Sun, moon and stars stay fixed on screen.
+- Clouds are cute, with a smiling face (eyes closed contentedly while raining, soft blue, never grey).
+  Rain sounds like soft, sparse water-drop plinks on a pentatonic scale, never a hiss: the child
+  found the old rain noise scary.
 - Rain: press and hold a cloud to make it rain under it, drag to move it (edge-scrolls too),
   at most one screen from its bed. A picked plot regrows a random vegetable.
   Vegetable beds regrow picked plots only while rained on; rain also makes fruit regrow 3x
