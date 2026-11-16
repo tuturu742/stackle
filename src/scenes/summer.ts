@@ -6,7 +6,7 @@ import type { SceneDef } from './scene';
 // fence runs all the way round, with bushes, rocks, flowers and birds along it.
 // Some animals start out wearing hats. Drag the ground to walk along it.
 // It grows as new things arrive.
-export const orchard: SceneDef = {
+export const summer: SceneDef = {
   width: 13 * 1024,
   start: 1024,
   objects: [
@@ -58,9 +58,10 @@ export const orchard: SceneDef = {
     { type: 'animal', x: 5600, animal: 'duck', depth: GROUND_Y + 40, home: 'pond' },
     { type: 'bush', x: 6060, seed: 5, animal: 'beaver' },
 
-    // Screen 6: the swing and a bin.
+    // Screen 6: the swing, the spinning top, and a bin.
     { type: 'swing', x: 6420 },
-    { type: 'rock', x: 6660, seed: 4 },
+    { type: 'rock', x: 6560, seed: 4 },
+    { type: 'toy', x: 6700, toy: 'top', depth: GROUND_Y + 60 },
     { type: 'bin', x: 6880 },
 
     // Screen 7: the farmhouse with a model ship on a sill and a cat behind an upstairs shutter,

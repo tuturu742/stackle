@@ -184,7 +184,22 @@ function voice(v: Voice): void {
   osc.stop(end + 0.02);
 }
 
-export type AnimalSound = 'cow' | 'hen' | 'sheep' | 'pig' | 'horse' | 'duck' | 'cat' | 'bunny' | 'raccoon' | 'beaver';
+export type AnimalSound =
+  | 'cow'
+  | 'hen'
+  | 'sheep'
+  | 'pig'
+  | 'horse'
+  | 'duck'
+  | 'cat'
+  | 'bunny'
+  | 'raccoon'
+  | 'beaver'
+  | 'penguin'
+  | 'reindeer'
+  | 'polarbear'
+  | 'fox'
+  | 'seal';
 
 export function animal(kind: AnimalSound): void {
   switch (kind) {
@@ -222,6 +237,26 @@ export function animal(kind: AnimalSound): void {
     case 'horse':
       voice({ wave: 'sawtooth', from: 520, to: 280, duration: 0.8, volume: 0.32, filter: 1200, filterTo: 700, q: 1.4, vibrato: [11, 45] });
       noise(0.12, 500, 0.06, 0.85);
+      break;
+    case 'penguin':
+      for (const delay of [0, 0.16]) voice({ wave: 'square', from: 560, to: 470, duration: 0.12, volume: 0.18, filter: 1100, q: 2.5, delay });
+      break;
+    case 'reindeer':
+      voice({ wave: 'sawtooth', from: 170, to: 140, duration: 0.3, volume: 0.3, filter: 500, q: 1.5 });
+      tone(1568, 1560, 0.3, 0.05, 0.3);
+      tone(2093, 2090, 0.25, 0.03, 0.34);
+      break;
+    case 'polarbear':
+      voice({ wave: 'sawtooth', from: 95, to: 85, duration: 0.7, volume: 0.42, filter: 260, filterTo: 420, q: 1.3, vibrato: [6, 4] });
+      break;
+    case 'fox':
+      voice({ wave: 'sawtooth', from: 900, to: 1300, duration: 0.09, volume: 0.18, filter: 1500, q: 2.5 });
+      voice({ wave: 'sawtooth', from: 1100, to: 700, duration: 0.14, volume: 0.16, filter: 1300, q: 2.5, delay: 0.1 });
+      break;
+    case 'seal':
+      for (const delay of [0, 0.22]) {
+        voice({ wave: 'sawtooth', from: 260, to: 200, duration: 0.14, volume: 0.32, filter: 600, q: 3, delay });
+      }
       break;
     case 'hen':
       for (const [delay, from] of [
@@ -495,6 +530,7 @@ export function music(instrument: 'drum' | 'guitar' | 'trumpet', pitch: number):
 }
 
 // --- The boombox: three little song loops, stand-ins until real ones are made.
+// The winter radio: three old carols, played on bells.
 
 interface Song {
   /** Seconds per step (an eighth note). */
@@ -503,7 +539,70 @@ interface Song {
   melody: (number | null)[];
   bass: (number | null)[];
   root: number;
+  /** Melody notes ring like little bells. */
+  bells?: boolean;
+  /** Soft sleigh bells shake on every beat. */
+  sleigh?: boolean;
 }
+
+/** A tune written as [semitones, eighths] pairs, spread out into one entry per step. */
+function tune(notes: [number, number][]): (number | null)[] {
+  return notes.flatMap(([note, length]) => [note, ...Array<null>(length - 1).fill(null)]);
+}
+
+/** A bass line: one note at the start of each bar (or every `every` steps within it). */
+function bassLine(roots: number[], bar: number, every = bar, pickup = 0): (number | null)[] {
+  const out: (number | null)[] = Array<null>(pickup).fill(null);
+  for (const root of roots) for (let i = 0; i < bar; i++) out.push(i % every === 0 ? root : null);
+  return out;
+}
+
+const JINGLE_HALF: [number, number][] = [
+  [4, 2], [4, 2], [4, 4],
+  [4, 2], [4, 2], [4, 4],
+  [4, 2], [7, 2], [0, 3], [2, 1],
+  [4, 8],
+  [5, 2], [5, 2], [5, 3], [5, 1],
+  [5, 2], [4, 2], [4, 2], [4, 1], [4, 1],
+];
+const JINGLE: [number, number][] = [
+  ...JINGLE_HALF,
+  [4, 2], [2, 2], [2, 2], [4, 2],
+  [2, 4], [7, 4],
+  ...JINGLE_HALF,
+  [7, 2], [7, 2], [5, 2], [2, 2],
+  [0, 8],
+];
+const DECK_LINE: [number, number][] = [
+  [7, 3], [5, 1], [4, 2], [2, 2],
+  [0, 2], [2, 2], [4, 2], [0, 2],
+  [2, 1], [4, 1], [5, 1], [2, 1], [4, 3], [2, 1],
+  [0, 2], [-1, 2], [0, 4],
+];
+const DECK: [number, number][] = [
+  ...DECK_LINE,
+  ...DECK_LINE,
+  [2, 3], [4, 1], [5, 2], [2, 2],
+  [4, 3], [5, 1], [7, 2], [2, 2],
+  [4, 1], [6, 1], [7, 2], [9, 1], [11, 1], [12, 2],
+  [11, 2], [9, 2], [7, 4],
+  [7, 3], [5, 1], [4, 2], [2, 2],
+  [0, 2], [2, 2], [4, 2], [0, 2],
+  [9, 1], [9, 1], [9, 1], [9, 1], [7, 3], [5, 1],
+  [4, 2], [2, 2], [0, 4],
+];
+// In 3/4, after a one-beat pickup.
+const WISH: [number, number][] = [
+  [-5, 2],
+  [0, 2], [0, 1], [2, 1], [0, 1], [-1, 1],
+  [-3, 2], [-3, 2], [-3, 2],
+  [2, 2], [2, 1], [4, 1], [2, 1], [0, 1],
+  [-1, 2], [-5, 2], [-5, 2],
+  [4, 2], [4, 1], [5, 1], [4, 1], [2, 1],
+  [0, 2], [-3, 2], [-5, 1], [-5, 1],
+  [-3, 2], [2, 2], [-1, 2],
+  [0, 6],
+];
 
 const SONGS: Song[] = [
   {
@@ -524,26 +623,51 @@ const SONGS: Song[] = [
     melody: [7, null, null, 4, null, null, 0, null, null, 4, null, null, 5, null, null, 4, null, null, 2, null, null, null, null, null],
     bass: [-12, null, null, -8, null, null, -5, null, null, -10, null, null],
   },
+  // 4: Jingle Bells, with sleigh bells on the beat.
+  {
+    step: 0.17,
+    root: 349,
+    melody: tune(JINGLE),
+    bass: bassLine([-12, -12, -12, -12, -7, -12, -5, -5, -12, -12, -12, -12, -7, -12, -5, -12], 8, 4),
+    bells: true,
+    sleigh: true,
+  },
+  // 5: Deck the Halls.
+  {
+    step: 0.19,
+    root: 349,
+    melody: tune(DECK),
+    bass: bassLine([-12, -12, -5, -12, -12, -12, -5, -12, -5, -12, -5, -5, -12, -12, -7, -12], 8, 4),
+    bells: true,
+  },
+  // 6: We Wish You a Merry Christmas.
+  {
+    step: 0.2,
+    root: 392,
+    melody: tune(WISH),
+    bass: bassLine([-12, -7, -10, -12, -7, -10, -10, -12], 6, 6, 2),
+    bells: true,
+  },
 ];
 
 let songTimer = 0;
 let songStep = 0;
 let songNext = 0;
 
-/** Play song 1, 2 or 3 on a loop, or 0 for quiet. */
+/** Play a song on a loop (1-3 the boombox's, 4-6 the winter radio's carols), or 0 for quiet. */
 export function playSong(n: number): void {
   clearInterval(songTimer);
   songTimer = 0;
   const song = SONGS[n - 1];
-  const ac = ready();
-  if (!song || !ac) return;
+  if (!song) return;
   songStep = 0;
-  songNext = ac.currentTime + 0.1;
+  // Starts on the first beat once audio is running: a level can open before iOS allows sound.
+  songNext = -Infinity;
   // Notes are scheduled a little ahead, so the beat stays even.
   songTimer = window.setInterval(() => {
     const now = ready()?.currentTime;
     if (now === undefined) return;
-    // After a pause (the app was away), pick the beat up again from now.
+    // At the start, or after a pause (the app was away), pick the beat up from now.
     if (songNext < now - 0.5) songNext = now + 0.05;
     while (songNext < now + 0.3) {
       const delay = Math.max(0, songNext - now);
@@ -551,8 +675,14 @@ export function playSong(n: number): void {
       const b = song.bass[songStep % song.bass.length];
       if (m !== null) {
         const f = song.root * Math.pow(2, m / 12);
-        tone(f, f, song.step * 1.6, 0.1, delay);
+        if (song.bells) {
+          // A bell: the note, an octave up ringing out, and a faint shimmer above that dies fast.
+          tone(f, f, song.step * 2.4, 0.08, delay);
+          tone(f * 2, f * 2, song.step * 1.8, 0.035, delay);
+          tone(f * 3.01, f * 3.01, song.step * 0.6, 0.015, delay);
+        } else tone(f, f, song.step * 1.6, 0.1, delay);
       }
+      if (song.sleigh && songStep % 2 === 0) noise(0.05, 7000, songStep % 4 === 0 ? 0.03 : 0.018, delay);
       if (b !== null) {
         const f = song.root * Math.pow(2, b / 12);
         tone(f, f * 0.98, song.step * 3, 0.12, delay);
@@ -561,4 +691,150 @@ export function playSong(n: number): void {
       songNext += song.step;
     }
   }, 50);
+}
+
+// --- Winter --------------------------------------------------------------
+
+/** The spinning top whirs for `seconds`: up a little at first, then wobbling down as it slows. */
+export function spinTop(seconds: number): void {
+  const ac = ready();
+  if (!ac || !master) return;
+  const t = ac.currentTime;
+  const end = t + Math.max(0.3, seconds);
+  const osc = ac.createOscillator();
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(420, t);
+  osc.frequency.linearRampToValueAtTime(520, t + (end - t) * 0.25);
+  osc.frequency.exponentialRampToValueAtTime(220, end);
+  // The wobble grows as it slows down.
+  const lfo = ac.createOscillator();
+  lfo.frequency.setValueAtTime(18, t);
+  lfo.frequency.linearRampToValueAtTime(5, end);
+  const depth = ac.createGain();
+  depth.gain.setValueAtTime(4, t);
+  depth.gain.linearRampToValueAtTime(40, end);
+  lfo.connect(depth).connect(osc.frequency);
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(0.07, t + 0.08);
+  gain.gain.setValueAtTime(0.07, end - (end - t) * 0.4);
+  gain.gain.exponentialRampToValueAtTime(0.0001, end);
+  osc.connect(gain).connect(master);
+  osc.start(t);
+  lfo.start(t);
+  osc.stop(end + 0.02);
+  lfo.stop(end + 0.02);
+}
+
+/** The top falls over on one of its four faces, and each face has its own little sound. */
+export function topFace(face: number): void {
+  switch (((face % 4) + 4) % 4) {
+    case 0:
+      // Boing.
+      voice({ wave: 'triangle', from: 180, to: 420, duration: 0.3, volume: 0.22, filter: 600, q: 1, vibrato: [14, 40] });
+      break;
+    case 1:
+      // A slide whistle going up.
+      tone(500, 1400, 0.45, 0.12);
+      break;
+    case 2:
+      // Ta-da.
+      [523, 659, 784].forEach((f, i) => tone(f, f, i === 2 ? 0.4 : 0.14, 0.13, i * 0.11));
+      break;
+    case 3:
+      // A little giggle.
+      for (let i = 0; i < 5; i++) {
+        const f = 900 - i * 60;
+        voice({ wave: 'triangle', from: f, to: f * 1.15, duration: 0.07, volume: 0.13, filter: 1400, q: 2, delay: i * 0.09 });
+      }
+      break;
+  }
+}
+
+/** A present is opened: paper rustles, then a sparkly rising run. */
+export function giftOpen(): void {
+  noise(0.12, 3000, 0.07);
+  noise(0.1, 2400, 0.06, 0.1);
+  [784, 988, 1175, 1568].forEach((f, i) => tone(f, f, 0.22, 0.09, 0.15 + i * 0.07));
+}
+
+let chargeOsc: OscillatorNode | null = null;
+let chargeGain: GainNode | null = null;
+
+/** The snowball cannon charging: a soft tone that rises while held, then holds; off stops it. */
+export function cannonCharge(on: boolean): void {
+  const ac = ready();
+  if (!ac || !master) return;
+  const t = ac.currentTime;
+  if (!chargeOsc) {
+    chargeOsc = ac.createOscillator();
+    chargeOsc.type = 'sine';
+    chargeOsc.frequency.value = 200;
+    chargeGain = ac.createGain();
+    chargeGain.gain.value = 0;
+    chargeOsc.connect(chargeGain).connect(master);
+    chargeOsc.start();
+  }
+  chargeOsc.frequency.cancelScheduledValues(t);
+  if (on) {
+    chargeOsc.frequency.setValueAtTime(200, t);
+    chargeOsc.frequency.linearRampToValueAtTime(520, t + 2);
+  }
+  chargeGain!.gain.setTargetAtTime(on ? 0.06 : 0, t, 0.06);
+}
+
+/** The cannon fires a snowball: a soft poomf, lower for a bigger ball (size 0 to 1). */
+export function cannonFire(size: number): void {
+  const s = Math.min(1, Math.max(0, size));
+  tone(220 - 100 * s, 60 - 20 * s, 0.25, 0.35);
+  noise(0.2, 500 - 200 * s, 0.1 + 0.06 * s);
+}
+
+/** Down the hill on a sled: a gentle falling swoosh with a happy glide. */
+export function whee(): void {
+  noise(0.8, 1400, 0.05);
+  tone(900, 600, 0.6, 0.06, 0.05);
+}
+
+/** Something slips across the ice: a very quiet scrape. */
+export function scratch(): void {
+  noise(0.12, 5000, 0.025);
+}
+
+/** An ice cube: a glassy clink. */
+export function iceClink(): void {
+  tone(2637, 2600, 0.18, 0.07);
+  tone(3520, 3500, 0.12, 0.04, 0.02);
+}
+
+const CANDLE_NOTES = [659, 784, 880, 1047, 1175];
+
+/** A candle is lit on an ice column: a soft bell, a different note for each colour. */
+export function candle(index: number): void {
+  const f = CANDLE_NOTES[((index % CANDLE_NOTES.length) + CANDLE_NOTES.length) % CANDLE_NOTES.length];
+  tone(f, f, 0.5, 0.1);
+  tone(f * 2, f * 2, 0.3, 0.03, 0.01);
+}
+
+/** Snow crunches underfoot or as a snowball lands (size 0 to 1). */
+export function crunch(size: number): void {
+  const s = Math.min(1, Math.max(0, size));
+  noise(0.08 + 0.1 * s, 1200 - 500 * s, 0.07 + 0.06 * s);
+}
+
+/** One very soft shake of sleigh bells, again and again while the sleigh is driven. */
+export function jingleStep(): void {
+  const f = 2400 + Math.random() * 300;
+  tone(f, f * 0.99, 0.09, 0.022);
+  tone(f * 1.12, f * 1.11, 0.08, 0.016, 0.045);
+  noise(0.03, 6500, 0.01);
+}
+
+/** Sleigh bells: a few soft taps. */
+export function jingle(): void {
+  for (let i = 0; i < 4; i++) {
+    const f = i % 2 ? 2350 : 2637;
+    tone(f, f * 0.99, 0.12, 0.05, i * 0.08);
+    noise(0.04, 6000, 0.02, i * 0.08);
+  }
 }

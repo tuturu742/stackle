@@ -15,6 +15,20 @@ const SHAKE_PAUSE = 2;
 /** How far either side of a bush's middle a let-go puts an animal into it. */
 const BUSH_REACH = 85;
 
+/** A wooden fence along the ground between `left` and `right`, behind everything. */
+export function drawFence(ctx: CanvasRenderingContext2D, left: number, right: number, rail = '#d9b48a', post = '#c99f74'): void {
+  const spacing = 64;
+  ctx.fillStyle = rail;
+  ctx.fillRect(left, FENCE_TOP, right - left, 9);
+  ctx.fillRect(left, FENCE_TOP + 22, right - left, 9);
+  ctx.fillStyle = post;
+  for (let x = Math.floor(left / spacing) * spacing; x <= right + spacing; x += spacing) {
+    ctx.beginPath();
+    ctx.roundRect(x - 6, FENCE_TOP - 8, 12, GROUND_Y + 4 - (FENCE_TOP - 8), [6, 6, 0, 0]);
+    ctx.fill();
+  }
+}
+
 const FLOWER_COLORS = ['#f28b82', '#f6c26b', '#b39ddb', '#f7f3ea', '#81c7e8'];
 
 /**

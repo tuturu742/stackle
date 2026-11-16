@@ -21,12 +21,12 @@ import { Bed, type Plot } from './objects/bed';
 import { Bin } from './objects/bin';
 import { Cloud } from './objects/cloud';
 import { Coop } from './objects/coop';
-import { Bird, Decor, FENCE_TOP } from './objects/decor';
+import { Bird, Decor, drawFence } from './objects/decor';
 import { Bench } from './objects/bench';
 import { Boombox } from './objects/boombox';
 import { Dispenser } from './objects/dispenser';
 import { CornField, SunflowerField, type Cob } from './objects/fields';
-import { isInstrument, TREATS, type InstrumentKind, type ToyKind } from './objects/goods';
+import { CANDLES, CANDLE_COLOR, CANDLE_FLAME_DY, ORNAMENTS, isCandle, isGift, isInstrument, isSnowball, SNOWBALLS, TREATS, type CandleKind, type InstrumentKind, type ToyKind } from './objects/goods';
 import { House } from './objects/house';
 import { Item, drawLoose, isFruit, isHat, isVeg, sizeOf, type ItemKind, type LooseKind } from './objects/item';
 import type { Perch } from './objects/perch';
@@ -43,6 +43,15 @@ import { Tree, type Slot } from './objects/tree';
 import type { VegKind } from './objects/veg';
 import { Vehicle } from './objects/vehicle';
 import { Windmill } from './objects/windmill';
+import { Cannon } from './objects/cannon';
+import { IceColumns } from './objects/columns';
+import { Rink } from './objects/rink';
+import { SledHill } from './objects/sledhill';
+import { Stall } from './objects/stall';
+import { ChaseLights, Pine, StreetLamp, drawSnowBank, drawTown } from './objects/town';
+import { SantaChair } from './objects/throne';
+import { DecorBox, MarketTable } from './objects/market';
+import { THEMES, type Theme } from './theme';
 import type { Saved, SavedStack } from './save';
 import type { Home, SceneDef } from './scenes/scene';
 import { settings } from './settings';
@@ -91,7 +100,7 @@ interface VehicleHold {
   moved: number;
 }
 
-/** A finger on something riding the swing: a tap pushes the swing, a drag picks the rider up. */
+/** A finger on something riding the swing, or on a candle: a tap pushes the swing or switches the candle, a drag picks it up. */
 interface RiderTouch {
   stack: Stack;
   index: number;
@@ -114,6 +123,16 @@ interface DoorHold {
 /** A finger turning the windmill's sails. */
 interface TurnHold {
   windmill: Windmill;
+  cssX: number;
+  cssY: number;
+  startX: number;
+  startY: number;
+  moved: number;
+}
+
+/** A finger holding the snow cannon down: a snowball grows until it lets go. */
+interface CannonHold {
+  cannon: Cannon;
   cssX: number;
   cssY: number;
   startX: number;
@@ -190,6 +209,21 @@ const FLOUR_CAP = 4;
 const HEN_CHAT_DIST = 200;
 /** Hats, counting the ones the animals start out wearing. */
 const HAT_CAP = 15;
+// The winter town's things: gifts and parcels, ice cubes, candles, snowballs, and each stall's goods.
+const GIFT_CAP = 6;
+const ICE_CAP = 16;
+const SNOWBALL_CAP = 12;
+const STALL_CAP = 10;
+/** Decorations are wanted in numbers: enough to dress a few trees. */
+const ORNAMENT_CAP = 30;
+/** Things that slide on the rink slow down this much (per second; the ground stops them at 10). */
+const ICE_FRICTION = 0.7;
+/** Let go on the rink, things slide off at least this fast. */
+const MIN_SLIDE = 50;
+/** The plough rolls snow, and makes a soft crunch every this far. */
+const CRUNCH_EVERY = 90;
+/** The sleigh's bells ring every this far it is driven. */
+const JINGLE_EVERY = 110;
 /** A finger that moves less than this (screen pixels) is a tap. */
 const TAP_SLOP = 14;
 /** Floating boats and ducks paddle across the water this fast. */
@@ -201,6 +235,11 @@ function bakesInto(kind: ItemKind): 'pie' | 'popcorn' | 'tortilla' | null {
   if (kind === 'corn') return 'popcorn';
   if (kind === 'flour') return 'tortilla';
   return isFruit(kind) || isVeg(kind) ? 'pie' : null;
+}
+
+/** The ice chest's blocks: they build walls and towers side by side. */
+function isIce(kind: ItemKind): boolean {
+  return kind === 'icecube' || kind === 'icewindow' || kind === 'icetop';
 }
 
 /** Each animal's umbrella. */
@@ -215,9 +254,14 @@ const UMBRELLA_COLORS: Record<AnimalKind, string> = {
   bunny: '#f3a3c4',
   raccoon: '#81c7e8',
   beaver: '#f2a541',
+  penguin: '#6bc3c9',
+  reindeer: '#d9574f',
+  polarbear: '#8cb8e8',
+  fox: '#7fb85e',
+  seal: '#f2c14e',
 };
 /** Bigger animals play lower. */
-const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2, bunny: 1.4, raccoon: 1.1, beaver: 1 };
+const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2, bunny: 1.4, raccoon: 1.1, beaver: 1, penguin: 1.25, reindeer: 0.7, polarbear: 0.6, fox: 1.15, seal: 0.9 };
 
 export class Game {
   private stacks: Stack[] = [];
@@ -246,6 +290,22 @@ export class Game {
   private fireflies: Fireflies[] = [];
   private houses: House[] = [];
   private coops: Coop[] = [];
+  private stalls: Stall[] = [];
+  private columns: IceColumns[] = [];
+  private cannons: Cannon[] = [];
+  private hills: SledHill[] = [];
+  private rinks: Rink[] = [];
+  private lamps: StreetLamp[] = [];
+  private pines: Pine[] = [];
+  private chases: ChaseLights[] = [];
+  private chairs: SantaChair[] = [];
+  private tables: MarketTable[] = [];
+  private boxes: DecorBox[] = [];
+  private readonly theme: Theme;
+  /** How far each driven plough or sleigh has gone since its last crunch or jingle. */
+  private travelled = new Map<Vehicle, number>();
+  /** When a stack sliding on the ice last scraped, so the sound is not a buzz. */
+  private lastScratchAt = 0;
 
   private holds = new Map<number, Hold>();
   /** Fingers dragging empty ground, panning the world. */
@@ -255,6 +315,7 @@ export class Game {
   private vehicleHolds = new Map<number, VehicleHold>();
   private turnHolds = new Map<number, TurnHold>();
   private riderTouches = new Map<number, RiderTouch>();
+  private cannonHolds = new Map<number, CannonHold>();
   /** Time of the last splash from a wheel in a puddle, per vehicle. */
   private wheelSplashAt = new Map<Vehicle, number>();
   private lastVehicleX = new Map<Vehicle, number>();
@@ -290,6 +351,8 @@ export class Game {
   constructor(scene: SceneDef) {
     this.width = scene.width;
     Stack.loop = scene.width;
+    this.theme = THEMES[scene.theme ?? 'summer'];
+    this.sky.colors = { top: this.theme.skyTop, bottom: this.theme.skyBottom };
     this.layout = JSON.stringify(scene);
     for (const def of scene.objects) {
       switch (def.type) {
@@ -363,16 +426,52 @@ export class Game {
           this.benches.push(new Bench(def.x));
           break;
         case 'boombox':
-          this.boomboxes.push(new Boombox(def.x));
+          this.boomboxes.push(new Boombox(def.x, def.style));
           break;
         case 'house':
-          this.houses.push(new House(def.x));
+          this.houses.push(new House(def.x, undefined, def.style));
           break;
         case 'coop':
           this.coops.push(new Coop(def.x));
           break;
         case 'mud':
           this.puddles.push(new Mud(def.x, def.width));
+          break;
+        case 'stall':
+          this.stalls.push(new Stall(def.look, def.x));
+          break;
+        case 'columns':
+          this.columns.push(new IceColumns(def.x));
+          break;
+        case 'cannon':
+          this.cannons.push(new Cannon(def.x));
+          break;
+        case 'sledhill':
+          this.hills.push(new SledHill(def.x));
+          break;
+        case 'rink':
+          this.rinks.push(new Rink(def.x, def.width));
+          break;
+        case 'lamp':
+          this.lamps.push(new StreetLamp(def.x));
+          break;
+        case 'pine':
+          this.pines.push(new Pine(def.x, def.seed, def.garland, def.height));
+          break;
+        case 'chaselights':
+          this.chases.push(new ChaseLights(def.x, def.width));
+          break;
+        case 'santachair':
+          this.chairs.push(new SantaChair(def.x));
+          break;
+        case 'market':
+          this.tables.push(new MarketTable(def.x));
+          break;
+        case 'decorbox':
+          this.boxes.push(new DecorBox(def.x));
+          break;
+        case 'stack':
+          this.standOnGround(def.items, def.x, def.depth);
           break;
         case 'animal':
         case 'toy':
@@ -416,7 +515,14 @@ export class Game {
       const puddle = this.puddles.find((p) => Math.abs(this.delta(x, p.x)) < p.width / 2);
       if (puddle) this.settleFloating(stack, puddle);
     } else if (home) {
-      const perches: Perch[] = home === 'coop' ? this.coops : home === 'bush' ? this.bushes : this.houses;
+      const homes: Record<string, Perch[]> = {
+        coop: this.coops,
+        bush: this.bushes,
+        chair: this.chairs,
+        bench: this.benches,
+        table: this.tables,
+      };
+      const perches = homes[home] ?? this.houses;
       for (const perch of perches) {
         for (let seat = 0; seat < perch.seatCount; seat++) {
           if (Math.abs(this.delta(perch.seatX(seat), x)) > 300 || this.taken({ perch, seat })) continue;
@@ -472,7 +578,21 @@ export class Game {
 
   /** Everywhere a stack can sit and move with; saves refer to them by this order. */
   private get perches(): Perch[] {
-    return [...this.vehicles, ...this.swings, ...this.grills, ...this.coops, ...this.houses, ...this.benches, ...this.bushes, ...this.scarecrows];
+    return [
+      ...this.vehicles,
+      ...this.swings,
+      ...this.grills,
+      ...this.coops,
+      ...this.houses,
+      ...this.benches,
+      ...this.bushes,
+      ...this.scarecrows,
+      ...this.columns,
+      ...this.hills,
+      ...this.pines,
+      ...this.chairs,
+      ...this.tables,
+    ];
   }
 
   private get bushes(): Decor[] {
@@ -498,7 +618,8 @@ export class Game {
       else if (a) saved.perch = [this.perches.indexOf(a.perch), a.seat];
       else if (stack.state === 'held') saved.floor = stack.bottom >= GROUND_BAND ? stack.bottom : FALL_FLOOR;
       else if (stack.state === 'falling') saved.floor = this.landingFloor(stack);
-      saved.floor = Math.min(FRONT_FLOOR, Math.max(GROUND_Y, saved.floor));
+      const onIce = this.rinks.some((r) => r.holds(r.x + this.delta(stack.x, r.x), saved.floor));
+      if (!onIce) saved.floor = Math.min(FRONT_FLOOR, Math.max(GROUND_Y, saved.floor));
       stacks.push(saved);
     }
     return {
@@ -514,6 +635,9 @@ export class Game {
       barns: this.barns.map((b) => [...b.slide]),
       dispensers: this.dispensers.map((d) => d.next),
       baskets: this.baskets.map((b) => b.turn),
+      stalls: this.stalls.map((st) => st.turn),
+      offers: this.vehicles.map((v) => v.offer?.turn ?? 0),
+      songs: this.boomboxes.map((b) => b.song),
       windows: this.houses.map((h) => [...h.isOpen]),
       doors: this.houses.map((h) => h.doorOpen),
     };
@@ -537,6 +661,18 @@ export class Game {
       saved.baskets?.forEach((turn, i) => {
         const b = this.baskets[i];
         if (b) b.turn = turn;
+      });
+      saved.stalls?.forEach((turn, i) => {
+        const st = this.stalls[i];
+        if (st) st.turn = turn;
+      });
+      saved.offers?.forEach((turn, i) => {
+        const offer = this.vehicles[i]?.offer;
+        if (offer) offer.turn = turn;
+      });
+      saved.songs?.forEach((song, i) => {
+        const b = this.boomboxes[i];
+        if (b) b.song = song;
       });
       saved.doors?.forEach((open, i) => {
         const house = this.houses[i];
@@ -633,11 +769,14 @@ export class Game {
 
   pointerDown(id: number, cssX: number, cssY: number): void {
     const p = this.toWorld(cssX, cssY);
+    // A finger on a vehicle never reaches through it to what stands behind.
+    const front = this.vehicles.find((v) => v.hits(p.x, p.y, 0));
+    const behind = (depth: number) => !!front && depth < front.depth;
 
     let best: { stack: Stack; index: number } | null = null;
     let bestDist = Infinity;
     for (const stack of this.stacks) {
-      if (stack.state === 'held' || this.hidden(stack)) continue;
+      if (stack.state === 'held' || this.hidden(stack) || behind(this.depthOf(stack))) continue;
       stack.shown().forEach((shown, index) => {
         const d = Math.hypot(this.delta(p.x, shown.x), p.y - shown.y);
         if (d <= shown.item.reach + GRAB_SLOP && d < bestDist) {
@@ -649,31 +788,43 @@ export class Game {
 
     // Things to pick that grow back: the nearest wins, against stacks too.
     let pickup: (() => Stack) | null = null;
-    const offer = (dist: number, take: () => Stack) => {
-      if (dist >= bestDist) return;
+    const offer = (dist: number, take: () => Stack, depth: number) => {
+      if (dist >= bestDist || behind(depth)) return;
       bestDist = dist;
       best = null;
       pickup = take;
     };
     for (const tree of this.trees) {
       const hit = tree.slotAt(p.x, p.y, GRAB_SLOP);
-      if (hit) offer(hit.dist, () => this.pick(tree, hit.slot));
+      if (hit) offer(hit.dist, () => this.pick(tree, hit.slot), -Infinity);
     }
     for (const barn of this.barns) {
       const hit = barn.hayAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickHay(barn, hit.bale));
+      if (hit) offer(hit.dist, () => this.pickHay(barn, hit.bale), barn.depth);
     }
     for (const bed of this.beds) {
       const hit = bed.plotAt(p.x, p.y, GRAB_SLOP);
-      if (hit) offer(hit.dist, () => this.pickVeg(bed, hit.plot));
+      if (hit) offer(hit.dist, () => this.pickVeg(bed, hit.plot), bed.depth);
     }
     for (const basket of this.baskets) {
       const hit = basket.treatAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickTreat(basket));
+      if (hit) offer(hit.dist, () => this.pickTreat(basket), basket.depth);
     }
     for (const field of this.cornfields) {
       const hit = field.cobAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickCorn(field, hit.cob));
+      if (hit) offer(hit.dist, () => this.pickCorn(field, hit.cob), field.depth);
+    }
+    for (const stall of this.stalls) {
+      const hit = stall.offerAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickFrom(stall.take()), stall.depth);
+    }
+    for (const vehicle of this.vehicles) {
+      const hit = vehicle.offerAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickFrom(vehicle.take()), Infinity);
+    }
+    for (const box of this.boxes) {
+      const hit = box.offerAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickFrom(box.take()), box.depth);
     }
 
     const cloud = this.clouds.find((c) => c.hits(p.x, p.y, GRAB_SLOP) && !c.raining);
@@ -681,13 +832,16 @@ export class Game {
     const sails = this.windmills.find((w) => w.hitsSails(p.x, p.y, 10));
     const driven = new Set([...this.vehicleHolds.values()].map((h) => h.vehicle));
     const vehicle = this.vehicles.find((v) => v.hits(p.x, p.y, 0) && !driven.has(v));
+    const held = new Set([...this.cannonHolds.values()].map((h) => h.cannon));
+    const cannon = this.cannons.find((c) => c.hits(p.x, p.y, 10) && !held.has(c));
     const take = pickup as (() => Stack) | null;
     if (take) {
       this.grab(id, take(), p);
     } else if (best) {
       const { stack, index } = best as { stack: Stack; index: number };
       const a = stack.anchor;
-      if (a && 'perch' in a && a.perch instanceof Swing) this.riderTouches.set(id, { stack, index, point: p, startX: cssX, startY: cssY });
+      const onSwing = a && 'perch' in a && a.perch instanceof Swing;
+      if (onSwing || isCandle(stack.items[index].kind)) this.riderTouches.set(id, { stack, index, point: p, startX: cssX, startY: cssY });
       else this.grab(id, index === 0 ? stack : this.split(stack, index), p);
     } else if (door) {
       const side = door.side!;
@@ -695,6 +849,14 @@ export class Game {
     } else if (sails) {
       sails.grab(p.x, p.y);
       this.turnHolds.set(id, { windmill: sails, cssX, cssY, startX: cssX, startY: cssY, moved: 0 });
+    } else if (cannon) {
+      // Pressed: a snowball grows in its mouth, unless enough are out already.
+      if (this.countKinds(isSnowball) >= SNOWBALL_CAP) audio.boop();
+      else {
+        cannon.press();
+        audio.cannonCharge(true);
+        this.cannonHolds.set(id, { cannon, cssX, cssY, startX: cssX, startY: cssY, moved: 0 });
+      }
     } else if (vehicle) {
       this.vehicleHolds.set(id, { vehicle, cssX, startX: cssX, dx: this.delta(vehicle.x, p.x), moved: 0 });
     } else if (cloud) {
@@ -730,6 +892,8 @@ export class Game {
       return;
     }
     for (const house of this.houses) {
+      const bulb = house.bulbAt(p.x, p.y, 6);
+      if (bulb >= 0) return audio.lantern(house.toggleBulb(bulb));
       const lamp = house.lampAt(p.x, p.y, 6);
       if (lamp !== null) {
         audio.lantern(house.toggleLamp(lamp));
@@ -751,6 +915,24 @@ export class Game {
       if (house.isOpen[w]) this.greet(house, w);
       return;
     }
+    const lamp = this.lamps.find((l) => l.hits(p.x, p.y, 10));
+    if (lamp) return audio.lantern(lamp.toggle());
+    const hill = this.hills.find((h) => h.hits(p.x, p.y, 10));
+    if (hill) {
+      if (hill.push()) audio.whee();
+      return;
+    }
+    const pine = this.pines.find((t) => t.hits(p.x, p.y, 10));
+    if (pine) {
+      // A tree with lights switches them; a plain one shakes off some snow.
+      if (pine.garland) return audio.lantern(pine.toggleLights());
+      pine.tap();
+      return audio.crunch(0.2);
+    }
+    const chase = this.chases.find((c) => c.hits(p.x, p.y, 10));
+    if (chase) return audio.lantern(chase.tap(p.x, p.y));
+    const stall = this.stalls.find((st) => st.hits(p.x, p.y, 0));
+    if (stall) return audio.lantern(stall.toggleLights());
     const owl = this.owls.find((o) => o.hits(p.x, p.y, 10));
     if (owl) return audio.hoot(owl.tap(this.sky.night > 0.5));
     const bird = this.birds.find((b) => b.hits(p.x, p.y, GRAB_SLOP));
@@ -875,6 +1057,12 @@ export class Game {
       turn.cssY = cssY;
       turn.moved = Math.max(turn.moved, Math.hypot(cssX - turn.startX, cssY - turn.startY));
     }
+    const aim = this.cannonHolds.get(id);
+    if (aim) {
+      aim.cssX = cssX;
+      aim.cssY = cssY;
+      aim.moved = Math.max(aim.moved, Math.hypot(cssX - aim.startX, cssY - aim.startY));
+    }
     const drive = this.vehicleHolds.get(id);
     if (drive) {
       drive.moved = Math.max(drive.moved, Math.abs(cssX - drive.startX));
@@ -891,6 +1079,23 @@ export class Game {
     }
   }
 
+  /** Back to the hub: every finger lets go where it is, and the level's looping sounds stop. */
+  leave(): void {
+    const ids = new Set<number>();
+    for (const map of [this.holds, this.pans, this.cloudHolds, this.doorHolds, this.vehicleHolds, this.turnHolds, this.riderTouches, this.cannonHolds]) {
+      for (const id of map.keys()) ids.add(id);
+    }
+    for (const id of ids) this.pointerUp(id);
+    audio.setRain(false);
+    audio.setMotor(false);
+    audio.playSong(0);
+  }
+
+  /** Into the level: a playing boombox (the first song, to begin with) starts its song. */
+  resume(): void {
+    audio.playSong(this.boomboxes.find((b) => b.song > 0)?.song ?? 0);
+  }
+
   pointerUp(id: number): void {
     const cloudHold = this.cloudHolds.get(id);
     if (cloudHold) {
@@ -902,7 +1107,11 @@ export class Game {
     if (rider) {
       this.riderTouches.delete(id);
       const a = rider.stack.anchor;
-      if (a && 'perch' in a && a.perch instanceof Swing) {
+      const item = rider.stack.items[rider.index];
+      if (item && isCandle(item.kind)) {
+        item.lit = !item.lit;
+        audio.lantern(item.lit);
+      } else if (a && 'perch' in a && a.perch instanceof Swing) {
         a.perch.push(rider.point.x);
         audio.swoosh();
       }
@@ -924,7 +1133,31 @@ export class Game {
     const drive = this.vehicleHolds.get(id);
     if (drive) {
       this.vehicleHolds.delete(id);
-      if (drive.moved < TAP_SLOP) audio.honk(drive.vehicle.kind === 'tractor');
+      const { vehicle } = drive;
+      if (drive.moved < TAP_SLOP) {
+        if (vehicle.kind === 'sleigh') audio.jingle();
+        else audio.honk(vehicle.kind === 'tractor' || vehicle.kind === 'plough');
+      }
+      // The plough leaves its snowball in front of the blade.
+      const ball = vehicle.dropBall();
+      if (ball) {
+        const stack = new Stack([new Item(ball.kind)], ball.x, ball.bottom);
+        stack.state = 'resting';
+        stack.floor = ball.bottom;
+        this.stacks.push(stack);
+        audio.crunch(1);
+      }
+    }
+    const cannonHold = this.cannonHolds.get(id);
+    if (cannonHold) {
+      this.cannonHolds.delete(id);
+      audio.cannonCharge(false);
+      const shot = cannonHold.cannon.fire();
+      const ball = new Stack([new Item(shot.kind)], shot.x, shot.bottom);
+      ball.vx = shot.vx;
+      ball.vy = shot.vy;
+      this.stacks.push(ball);
+      audio.cannonFire(SNOWBALLS.indexOf(shot.kind) / (SNOWBALLS.length - 1));
     }
     const pan = this.pans.get(id);
     if (pan) {
@@ -955,6 +1188,11 @@ export class Game {
   /** Take the treat sitting on top of the picnic basket. */
   private pickTreat(basket: Basket): Stack {
     const { kind, x, bottom } = basket.take();
+    return this.picked(new Item(kind), undefined, x, bottom);
+  }
+
+  /** Take what a stall or a vehicle offers: a candle, a gift, a parcel... */
+  private pickFrom({ kind, x, bottom }: { kind: ItemKind; x: number; bottom: number }): Stack {
     return this.picked(new Item(kind), undefined, x, bottom);
   }
 
@@ -997,7 +1235,10 @@ export class Game {
     stack.anchor = null;
     stack.drowningIn = null;
     stack.floatingIn = null;
-    for (const item of stack.items) item.wake();
+    for (const item of stack.items) {
+      item.wake();
+      item.lift();
+    }
     const animal = stack.items.find((i) => i.animal)?.animal;
     if (animal) audio.animal(animal);
     const css = { x: this.wrap(p.x - this.camX) * this.scale, y: (p.y - this.camY) * this.scale };
@@ -1022,8 +1263,18 @@ export class Game {
     if (speed < PLACE_SPEED) {
       const eater = this.mouthFor(stack);
       if (eater && eater.dist <= stack.items[0].radius + EAT_DIST) return this.feed(eater.item, stack);
+      // On a pine's branches, a free spot and the top of something already hanging there can both
+      // be in reach: it goes to whichever is nearer.
       const target = this.towerUnder(stack);
+      const branch = this.seatUnder(stack);
+      if (branch && 'perch' in branch && branch.perch instanceof Pine) {
+        const toSpot = Math.hypot(this.delta(stack.x, branch.perch.seatX(branch.seat)), stack.bottom - branch.perch.seatTop(branch.seat));
+        const toTop = target ? Math.hypot(this.delta(stack.x, target.x), stack.bottom - (target.bottom - target.height)) : Infinity;
+        if (toSpot < toTop) return this.rest(stack, branch);
+      }
       if (target) return this.glue(target, stack);
+      const beside = this.iceBeside(stack);
+      if (beside) return this.buildBeside(stack, beside);
       const anchor = this.fruitUnder(stack) ?? this.vegUnder(stack) ?? this.seatUnder(stack);
       if (anchor) return this.rest(stack, anchor);
       const bed = this.beds.find((b) => b.freePlotAt(stack.x, stack.bottom));
@@ -1051,6 +1302,13 @@ export class Game {
 
   /** Let go somewhere plain: low on the ground it stays at that depth, in the air it falls in front. */
   private drop(stack: Stack): void {
+    // Let go over the raised rink, it stands on the ice there.
+    const rink = this.rinks.find((r) => r.holds(r.x + this.delta(stack.x, r.x), stack.bottom));
+    if (rink) {
+      stack.fixedFloor = stack.bottom;
+      stack.state = 'falling';
+      return;
+    }
     let floor = stack.bottom >= GROUND_BAND ? Math.min(FRONT_FLOOR, Math.max(GROUND_Y, stack.bottom)) : null;
     // Never behind a front wall: into the barn only through the doors.
     for (const wall of this.walls) {
@@ -1134,6 +1392,35 @@ export class Game {
     return best;
   }
 
+  /** An ice block let go just beside a tower of ice: where it would stand flush against it. */
+  private iceBeside(stack: Stack): Stack | null {
+    if (!isIce(stack.items[0].kind)) return null;
+    let best: Stack | null = null;
+    let bestDist = Infinity;
+    for (const other of this.stacks) {
+      if (other === stack || other.state !== 'resting' || other.drowningIn || other.floatingIn || !isIce(other.items[0].kind)) continue;
+      const dx = Math.abs(this.delta(stack.x, other.x));
+      const touch = stack.radius + other.radius;
+      // Anywhere along its side, from its foot to a little above its top.
+      const alongside = stack.bottom <= other.bottom + 40 && stack.bottom >= other.bottom - other.height - 30;
+      if (dx >= touch * 0.6 && dx <= touch * 1.5 && alongside && dx < bestDist) {
+        best = other;
+        bestDist = dx;
+      }
+    }
+    return best;
+  }
+
+  /** Stand an ice block flush beside another tower, on the same ground line, starting a new column. */
+  private buildBeside(stack: Stack, other: Stack): void {
+    const side = this.delta(stack.x, other.x) < 0 ? -1 : 1;
+    stack.x = this.wrap(other.x + side * (stack.radius + other.radius));
+    stack.vx = stack.vy = 0;
+    stack.fixedFloor = other.floor;
+    stack.state = 'falling';
+    audio.iceClink();
+  }
+
   private fruitUnder(stack: Stack): Anchor | null {
     for (const tree of this.trees) {
       for (const slot of tree.slots) {
@@ -1199,6 +1486,7 @@ export class Game {
     lower.items.push(...upper.items);
     this.removeStack(upper);
     audio.plop(0.4);
+    this.openGifts(lower);
     this.limitHeight(lower);
     this.playIfGiven(lower);
   }
@@ -1211,9 +1499,58 @@ export class Game {
     stack.vx = stack.vy = 0;
     stack.items[0].squash = 0.25;
     audio.plop(0.4);
+    this.openGifts(stack);
+    this.lightColumn(stack);
     this.limitHeight(stack);
     this.playIfGiven(stack);
     this.chat(stack);
+  }
+
+  /** A gift or parcel put on an animal's head (or its hat) opens: confetti, and a very happy animal. */
+  private openGifts(stack: Stack): void {
+    for (let i = 1; i < stack.items.length; i++) {
+      const gift = stack.items[i];
+      if (!isGift(gift.kind)) continue;
+      let below = i - 1;
+      while (below > 0 && isHat(stack.items[below].kind)) below--;
+      const animal = stack.items[below];
+      if (!animal.animal) continue;
+      const shown = stack.shown()[i];
+      stack.items.splice(i, 1);
+      for (const color of ['#e8665c', '#f2c14e', '#7fbf6a', '#6b9fe0', '#ef8fb4']) {
+        this.splash(shown.x + (Math.random() - 0.5) * 30, shown.y, 0.5, color);
+      }
+      animal.happy = 2;
+      animal.dance = 1.4;
+      animal.squash = 0.25;
+      animal.wake();
+      audio.giftOpen();
+      audio.animal(animal.animal);
+      i--;
+    }
+  }
+
+  /** A candle stood on an ice column chimes (the column takes its colour as it updates). */
+  private lightColumn(stack: Stack): void {
+    const a = stack.anchor;
+    const kind = stack.items[0].kind;
+    if (!a || !('perch' in a) || !(a.perch instanceof IceColumns) || !isCandle(kind)) return;
+    audio.candle(CANDLES.indexOf(kind as CandleKind));
+  }
+
+  /** How many things of a kind are out in the world. */
+  private countKinds(match: (kind: ItemKind) => boolean): number {
+    let n = 0;
+    for (const stack of this.stacks) for (const { kind } of stack.items) if (match(kind)) n++;
+    return n;
+  }
+
+  /** Whether a stall may put out another: its own kind of thing (hats share the hat cap). */
+  private stallCanGive(stall: Stall, hats: number): boolean {
+    if (stall.look === 'hats') return hats < HAT_CAP;
+    const kinds = new Set<ItemKind>(stall.kinds);
+    const cap = stall.look === 'icechest' ? ICE_CAP : stall.look === 'ornaments' ? ORNAMENT_CAP : STALL_CAP;
+    return this.countKinds((k) => kinds.has(k)) < cap;
   }
 
   /** A hen put down near another hen clucks, and the other clucks back. */
@@ -1297,7 +1634,11 @@ export class Game {
       const { vehicle } = drive;
       const finger = this.toWorld(drive.cssX, 0);
       const x = this.wrap(finger.x + drive.dx);
-      vehicle.moveTo(x, this.delta(x, vehicle.x));
+      const moved = this.delta(x, vehicle.x);
+      vehicle.moveTo(x, moved);
+      if (vehicle.kind === 'plough' && this.countKinds(isSnowball) < SNOWBALL_CAP) this.plough(vehicle, moved);
+      // The sleigh's bells ring as it goes.
+      if (vehicle.kind === 'sleigh' && this.travel(vehicle, moved, JINGLE_EVERY)) audio.jingleStep();
     }
     this.splashWheels();
     for (const hold of this.doorHolds.values()) {
@@ -1305,6 +1646,12 @@ export class Game {
       const finger = this.toWorld(hold.cssX, 0);
       const slid = (this.delta(finger.x, hold.startWorldX) * Barn.direction(hold.side)) / Barn.panelWidth;
       hold.barn.drag(hold.side, hold.startSlide + slid);
+    }
+    // A finger held on the cannon and moved turns its barrel toward it.
+    for (const hold of this.cannonHolds.values()) {
+      if (hold.moved < TAP_SLOP) continue;
+      const finger = this.toWorld(hold.cssX, hold.cssY);
+      hold.cannon.aimAt(hold.cannon.x + this.delta(finger.x, hold.cannon.x), finger.y);
     }
     for (const turn of this.turnHolds.values()) {
       const finger = this.toWorld(turn.cssX, turn.cssY);
@@ -1333,9 +1680,13 @@ export class Game {
           break;
         case 'resting':
           if (stack.vx !== 0) {
-            stack.x = this.wrap(stack.x + stack.vx * dt);
-            stack.vx *= Math.exp(-10 * dt);
-            if (Math.abs(stack.vx) < 5) stack.vx = 0;
+            const rink = this.rinkUnder(stack);
+            if (rink) this.slide(stack, rink, dt);
+            else {
+              stack.x = this.wrap(stack.x + stack.vx * dt);
+              stack.vx *= Math.exp(-10 * dt);
+              if (Math.abs(stack.vx) < 5) stack.vx = 0;
+            }
           }
           if (stack.drowningIn && this.time >= stack.nextSinkAt) this.sinkBottom(stack, stack.drowningIn);
           else if (stack.floatingIn instanceof Puddle) this.paddle(stack, stack.floatingIn, dt);
@@ -1350,6 +1701,7 @@ export class Game {
       }
       stack.update(dt);
     }
+    this.buildSnowmen();
     this.runMotor();
     for (const reply of this.replies) {
       if (this.time < reply.at) continue;
@@ -1378,6 +1730,7 @@ export class Game {
     ])
       thing.update(dt);
     for (const house of this.houses) house.update(dt, settings.reduceMotion);
+    this.winter(dt);
     for (const windmill of this.windmills) if (windmill.update(dt)) this.mill(windmill);
     // Fingers held down (on the ground or carrying something) call the fireflies at night.
     const fingers = [...this.pans.values(), ...this.holds.values()].map((f) => this.toWorld(f.cssX, f.cssY));
@@ -1582,6 +1935,11 @@ export class Game {
         this.intoSink(stack, bin);
       }
     }
+    // Falling onto the raised rink, it lands on the ice.
+    if (stack.fixedFloor === null && !stack.drowningIn && !stack.floatingIn && stack.vy > 0) {
+      const rink = this.rinks.find((r) => before <= r.cy && stack.bottom >= r.cy && r.holds(r.x + this.delta(stack.x, r.x), r.cy));
+      if (rink) stack.fixedFloor = rink.cy;
+    }
     stack.floor = this.landingFloor(stack);
     if (stack.bottom < stack.floor) return;
 
@@ -1607,9 +1965,106 @@ export class Game {
     }
     stack.vy = 0;
     stack.state = 'resting';
+    // Landing on the ice, it slides off, at least a little.
+    if (!stack.drowningIn && !stack.floatingIn && this.rinkUnder(stack) && Math.abs(stack.vx) < MIN_SLIDE) {
+      stack.vx = (stack.vx < 0 ? -1 : 1) * MIN_SLIDE;
+    }
+    // A spinning top lands spinning.
+    if (stack.items.length === 1 && !stack.drowningIn && !stack.floatingIn) stack.items[0].spin();
     this.limitHeight(stack);
     if (!stack.drowningIn) this.playIfGiven(stack);
     this.chat(stack);
+  }
+
+  /** The rink a resting stack stands on, if any. */
+  private rinkUnder(stack: Stack): Rink | null {
+    if (stack.state !== 'resting' || stack.drowningIn || stack.floatingIn || stack.anchor) return null;
+    return this.rinks.find((r) => r.holds(r.x + this.delta(stack.x, r.x), stack.floor)) ?? null;
+  }
+
+  /** On the ice: it glides on, slowing gently, bouncing softly off the edge, scratching the ice as it goes. */
+  private slide(stack: Stack, rink: Rink, dt: number): void {
+    const from = rink.x + this.delta(stack.x, rink.x);
+    let to = from + stack.vx * dt;
+    const reach = rink.reach(stack.floor, stack.radius * 0.6);
+    if (Math.abs(to - rink.x) > reach) {
+      to = rink.x + Math.sign(to - rink.x) * reach;
+      stack.vx = -stack.vx * 0.7;
+      stack.nudge(Math.sign(stack.vx) * 1.2);
+      audio.plop(0.2);
+    }
+    rink.scratch(from, to, stack.floor - 2);
+    stack.x = this.wrap(to);
+    stack.vx *= Math.exp(-ICE_FRICTION * dt);
+    if (Math.abs(stack.vx) < 6) stack.vx = 0;
+    if (Math.abs(stack.vx) > 40 && this.time - this.lastScratchAt > 0.35) {
+      this.lastScratchAt = this.time;
+      audio.scratch();
+    }
+  }
+
+  /** Snowballs stacked on snowballs make a snowman: the top one gets a face, the middle ones arms. */
+  private buildSnowmen(): void {
+    for (const stack of this.stacks) {
+      const items = stack.items;
+      for (let i = 0; i < items.length; i++) {
+        const ball = isSnowball(items[i].kind);
+        const below = i > 0 && isSnowball(items[i - 1].kind);
+        const above = i + 1 < items.length && isSnowball(items[i + 1].kind);
+        items[i].snowman = ball && below ? (above ? 'body' : 'head') : null;
+        // A candle with something on top shows no wick or flame.
+        items[i].covered = i < items.length - 1;
+      }
+    }
+  }
+
+  /** Driving the plough rolls a snowball in front of its blade, crunching as it grows. */
+  private plough(vehicle: Vehicle, moved: number): void {
+    const before = vehicle.snowball;
+    vehicle.gather(moved);
+    if (this.travel(vehicle, moved, CRUNCH_EVERY)) audio.crunch(0.25);
+    if (vehicle.snowball !== before) audio.crunch(0.6);
+  }
+
+  /** Count a vehicle's driving; true each time it has gone another `every`. */
+  private travel(vehicle: Vehicle, moved: number, every: number): boolean {
+    const gone = (this.travelled.get(vehicle) ?? 0) + Math.abs(moved);
+    this.travelled.set(vehicle, gone % every);
+    return gone >= every;
+  }
+
+  /** The winter town's things: stalls and vehicles put out more, the cannon charges, the sleds go. */
+  private winter(dt: number): void {
+    if (!this.stalls.length && !this.vehicles.some((v) => v.offer) && !this.hills.length && !this.cannons.length) {
+      for (const rink of this.rinks) rink.update(dt);
+      return;
+    }
+    const hats = this.countOut().hats;
+    for (const stall of this.stalls) if (stall.update(dt, this.stallCanGive(stall, hats))) audio.basket();
+    const gifts = this.countKinds(isGift);
+    for (const v of this.vehicles) if (v.offer?.update(dt, gifts < GIFT_CAP)) audio.basket();
+    const ornaments = this.countKinds((k) => (ORNAMENTS as ItemKind[]).includes(k));
+    for (const box of this.boxes) if (box.offer.update(dt, ornaments < ORNAMENT_CAP)) audio.basket();
+    // Each ice column takes the colour of a candle standing on it, and loses it when the candle goes.
+    for (const c of this.columns) {
+      for (let i = 0; i < c.seatCount; i++) {
+        const on = this.stacks.find((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === c && st.anchor.seat === i);
+        const kind = on?.items[0].kind;
+        c.tint(i, kind && isCandle(kind) ? CANDLE_COLOR[kind] : null);
+      }
+      c.update(dt);
+    }
+    for (const c of this.cannons) c.update(dt);
+    // The sleds only go while their hill is in sight.
+    for (const hill of this.hills) {
+      if (!this.onScreen(hill.x, 450)) continue;
+      hill.riders = this.stacks.some((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === hill);
+      if (hill.update(dt, settings.reduceMotion)) audio.whee();
+    }
+    for (const rink of this.rinks) rink.update(dt);
+    for (const lamp of this.lamps) lamp.update(dt);
+    for (const pine of this.pines) pine.update(dt);
+    for (const chase of this.chases) chase.update(dt);
   }
 
   /** A tower goes under (or into the bin) one item at a time, bottom first; the rest drops in after it. */
@@ -1681,7 +2136,7 @@ export class Game {
     const a = stack.anchor;
     if (a) {
       if ('bed' in a) return a.bed.depth + 0.1;
-      if ('perch' in a) return a.perch.depth + 0.1;
+      if ('perch' in a) return a.perch.seatDepth?.(a.seat) ?? a.perch.depth + 0.1;
       return -Infinity;
     }
     const water = stack.drowningIn ?? stack.floatingIn;
@@ -1824,11 +2279,20 @@ export class Game {
         at(h.frontDepth, h.x, 260, () => h.draw(ctx)),
         at(h.frontDepth + 0.05, h.x, 260, () => h.drawShutters(ctx)),
       ]),
-      ...[...this.stables, ...this.dispensers, ...this.coops, ...this.vehicles, ...this.baskets, ...this.benches].map((s) =>
+      ...[...this.stables, ...this.dispensers, ...this.coops, ...this.vehicles, ...this.baskets, ...this.benches, ...this.tables, ...this.boxes].map((s) =>
         at(s.depth, s.x, 250, () => s.draw(ctx)),
       ),
       ...[...this.swings, ...this.windmills].map((s) => at(s.depth, s.x, 250, () => s.draw(ctx))),
       ...this.grills.map((g) => at(g.depth, g.x, 80, () => g.draw(ctx, t))),
+      ...this.stalls.map((st) => at(st.depth, st.x, 200, () => st.draw(ctx, t))),
+      ...this.columns.map((c) => at(c.depth, c.x, c.width / 2 + 20, () => c.draw(ctx))),
+      ...this.cannons.map((c) => at(c.depth, c.x, 160, () => c.draw(ctx))),
+      ...this.hills.flatMap((h) => [at(h.hillDepth, h.x, 450, () => h.drawHill(ctx)), at(h.depth, h.x, 450, () => h.drawSled(ctx))]),
+      ...this.rinks.map((rk) => at(rk.depth, rk.x, rk.width / 2 + 30, () => rk.draw(ctx))),
+      ...this.lamps.map((l) => at(l.depth, l.x, 60, () => l.draw(ctx))),
+      ...this.pines.map((pn) => at(pn.depth, pn.x, 140, () => pn.draw(ctx))),
+      ...this.chases.map((c) => at(c.depth, c.x, c.width / 2 + 20, () => c.draw(ctx))),
+      ...this.chairs.flatMap((c) => [at(c.depth, c.x, 160, () => c.draw(ctx)), at(c.frontDepth, c.x, 160, () => c.drawFront(ctx))]),
       ...this.boomboxes.map((b) => at(b.depth, b.x, 80, () => b.draw(ctx))),
       ...this.stacks.map((s) => at(this.depthOf(s), s.x, 200, () => this.drawStack(ctx, s))),
       ...this.vanishing.map((v) =>
@@ -1862,15 +2326,20 @@ export class Game {
     const left = this.camX;
     const right = this.camX + this.viewW;
 
-    // Hills scroll slower than the ground, so they feel far away.
-    this.drawHills(ctx, left, right, 0.3, GROUND_Y - 120, 90, 0.004, palette.hillFar);
-    this.drawHills(ctx, left, right, 0.6, GROUND_Y - 60, 60, 0.007, palette.hillNear);
+    // Hills (or the snowy town) scroll slower than the ground, so they feel far away.
+    const theme = this.theme;
+    if (theme.winter) drawTown(ctx, left, right, this.camTravel);
+    else {
+      this.drawHills(ctx, left, right, 0.3, GROUND_Y - 120, 90, 0.004, theme.hillFar);
+      this.drawHills(ctx, left, right, 0.6, GROUND_Y - 60, 60, 0.007, theme.hillNear);
+    }
 
-    ctx.fillStyle = palette.ground;
+    ctx.fillStyle = theme.ground;
     ctx.fillRect(left, GROUND_Y, right - left, WORLD_H - GROUND_Y + 10);
-    ctx.fillStyle = palette.groundDark;
+    ctx.fillStyle = theme.groundDark;
     ctx.fillRect(left, GROUND_Y + 50, right - left, WORLD_H - GROUND_Y);
-    this.drawFence(ctx, left, right);
+    if (theme.winter) drawSnowBank(ctx, left, right);
+    else drawFence(ctx, left, right);
 
     // Where the view runs past the end of the farm, the start is drawn again after it.
     const shifts = right > this.width ? [0, this.width] : [0];
@@ -1887,6 +2356,7 @@ export class Game {
       this.notes.draw(ctx);
       ctx.restore();
     }
+    if (theme.winter) this.drawSnowfall(ctx, left);
 
     if (night) {
       this.sky.washLandscape(ctx);
@@ -1902,21 +2372,56 @@ export class Game {
         for (const picnic of this.picnics) picnic.drawGlow(screen, this.sky.night);
         for (const house of this.houses) house.drawGlow(screen, this.sky.night);
         for (const puddle of this.puddles) puddle.drawMoon(screen, this.time, this.sky.night);
+        for (const stall of this.stalls) stall.drawGlow(screen, this.sky.night);
+        for (const lamp of this.lamps) lamp.drawGlow(screen, this.sky.night);
+        for (const pine of this.pines) if (pine.garland) pine.drawGlow(screen, this.sky.night);
+        for (const chase of this.chases) chase.drawGlow(screen, this.sky.night);
+        for (const c of this.columns) {
+          const lit = c.colors.map((_, i) =>
+            this.stacks.some((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === c && st.anchor.seat === i && st.items[0].lit),
+          );
+          c.drawGlow(screen, this.sky.night, lit);
+        }
+        this.drawCandleGlows(screen);
         screen.restore();
       }
     }
   }
 
-  /** A wooden fence runs right round the farm, behind everything. */
-  private drawFence(ctx: CanvasRenderingContext2D, left: number, right: number): void {
-    const spacing = 64;
-    ctx.fillStyle = '#d9b48a';
-    ctx.fillRect(left, FENCE_TOP, right - left, 9);
-    ctx.fillRect(left, FENCE_TOP + 22, right - left, 9);
-    ctx.fillStyle = '#c99f74';
-    for (let x = Math.floor(left / spacing) * spacing; x <= right + spacing; x += spacing) {
+  /** Every lit candle glows at night, wherever it is (unless something stands on it, or it is shut away). */
+  private drawCandleGlows(ctx: CanvasRenderingContext2D): void {
+    const night = this.sky.night;
+    for (const stack of this.stacks) {
+      if (this.hidden(stack)) continue;
+      const shown = stack.shown();
+      shown.forEach((s, i) => {
+        if (!isCandle(s.item.kind) || !s.item.lit || i < shown.length - 1) return;
+        const x = s.x;
+        const y = s.y + CANDLE_FLAME_DY;
+        const glow = ctx.createRadialGradient(x, y, 2, x, y, 80);
+        glow.addColorStop(0, `rgba(255, 214, 140, ${0.6 * night})`);
+        glow.addColorStop(1, 'rgba(255, 214, 140, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, y, 80, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  /** Snow falling softly over the winter town, the same few flakes drifting down the screen. */
+  private drawSnowfall(ctx: CanvasRenderingContext2D, left: number): void {
+    const count = settings.reduceMotion ? 18 : 46;
+    const speed = settings.reduceMotion ? 0.4 : 1;
+    const top = this.camY;
+    const h = this.viewH + 40;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    for (let i = 0; i < count; i++) {
+      const fall = this.time * (26 + (i % 5) * 7) * speed;
+      const x = left + ((((i * 211.7 + Math.sin(this.time * 0.5 + i) * 24) % this.viewW) + this.viewW) % this.viewW);
+      const y = top - 20 + ((i * 97.3 + fall) % h);
       ctx.beginPath();
-      ctx.roundRect(x - 6, FENCE_TOP - 8, 12, GROUND_Y + 4 - (FENCE_TOP - 8), [6, 6, 0, 0]);
+      ctx.arc(x, y, 2.5 + (i % 3), 0, Math.PI * 2);
       ctx.fill();
     }
   }

@@ -3,7 +3,10 @@ import type { FruitKind } from '../objects/fruit';
 import type { ToyKind } from '../objects/goods';
 import type { HatKind } from '../objects/hat';
 import type { VegKind } from '../objects/veg';
+import type { StallLook } from '../objects/stall';
 import type { VehicleKind } from '../objects/vehicle';
+import type { ItemKind } from '../objects/item';
+import type { ThemeName } from '../theme';
 
 // A scene is plain data: which objects exist and where. Adding a scene or an
 // object should only take a few lines here.
@@ -44,16 +47,40 @@ export type ObjectDef =
   | { type: 'picnic'; x: number; width: number }
   | { type: 'basket'; x: number }
   | { type: 'grill'; x: number }
-  /** Plays a song per tap, then quiet. */
-  | { type: 'boombox'; x: number }
-  /** The farmhouse, with two windows. */
-  | { type: 'house'; x: number }
+  /** Plays a song per tap, then quiet; the winter one is a radio playing carols. */
+  | { type: 'boombox'; x: number; style?: 'summer' | 'winter' }
+  /** The farmhouse, with four windows and a door; `town` dresses it for the winter town. */
+  | { type: 'house'; x: number; style?: 'farm' | 'town' }
   | { type: 'coop'; x: number }
   /** A bench for two. */
   | { type: 'bench'; x: number }
-  | { type: 'mud'; x: number; width: number };
+  | { type: 'mud'; x: number; width: number }
+  // The winter town.
+  /** A stall giving out its kind of thing in turn: ice cubes, candles, sweets, cocoa, hats, fast food, ornaments. */
+  | { type: 'stall'; x: number; look: StallLook }
+  /** A row of ice columns; a candle on one colours it. */
+  | { type: 'columns'; x: number }
+  /** Hold it to grow a snowball in its mouth, let go to fire it. */
+  | { type: 'cannon'; x: number }
+  /** A snowy slope with a sled that riders go down. */
+  | { type: 'sledhill'; x: number }
+  /** A frozen rink: things let go on it slide and leave scratches. */
+  | { type: 'rink'; x: number; width: number }
+  | { type: 'lamp'; x: number }
+  /** A snowy pine; ornaments put on it hang there. With `garland` it has a string of lights. */
+  | { type: 'pine'; x: number; seed: number; garland?: boolean; height?: number }
+  /** A string of lights between two posts whose bulbs light up one after another. */
+  | { type: 'chaselights'; x: number; width: number }
+  /** Santa's chair: put the polar bear in it with an animal entry at the same x, `home: 'chair'`. */
+  | { type: 'santachair'; x: number }
+  /** A Christmas market table with a bench at each end (`home: 'table'` seats an animal there). */
+  | { type: 'market'; x: number }
+  /** A box of Christmas decorations to take, on a doorstep. */
+  | { type: 'decorbox'; x: number }
+  /** Loose things standing there at the start, like a snowman (they come back, so they are not kept). */
+  | { type: 'stack'; x: number; items: ItemKind[]; depth: number };
 
-export type Home = 'pond' | 'coop' | 'house' | 'bush';
+export type Home = 'pond' | 'coop' | 'house' | 'bush' | 'chair' | 'bench' | 'table';
 // With a `home` of coop or house, `seat` picks the seat (house: windows 0-3, the doorway 4), shut or not.
 
 export interface SceneDef {
@@ -61,5 +88,7 @@ export interface SceneDef {
   width: number;
   /** Where the view starts. The farm loops round, so x = width is x = 0 again. */
   start?: number;
+  /** Colours and backdrop; summer if not given. */
+  theme?: ThemeName;
   objects: ObjectDef[];
 }

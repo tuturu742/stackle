@@ -37,6 +37,8 @@ export class Sky {
   toNight = false;
   private left = 0;
   private width = SCREEN_W;
+  /** The day sky's colours, top and bottom, for the level. */
+  colors = { top: palette.skyTop, bottom: palette.skyBottom };
 
   setView(left: number, width: number): void {
     this.left = left;
@@ -75,8 +77,8 @@ export class Sky {
   drawSky(ctx: CanvasRenderingContext2D): void {
     const { width, height } = ctx.canvas;
     const sky = ctx.createLinearGradient(0, 0, 0, height);
-    sky.addColorStop(0, mix(palette.skyTop, NIGHT_SKY_TOP, this.night));
-    sky.addColorStop(1, mix(palette.skyBottom, NIGHT_SKY_BOTTOM, this.night));
+    sky.addColorStop(0, mix(this.colors.top, NIGHT_SKY_TOP, this.night));
+    sky.addColorStop(1, mix(this.colors.bottom, NIGHT_SKY_BOTTOM, this.night));
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, width, height);
   }

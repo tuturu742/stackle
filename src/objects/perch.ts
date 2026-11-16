@@ -21,6 +21,8 @@ export interface Perch {
   hides?(i: number): boolean;
   /** Clip what sits on the seat, so it shows only through its opening. */
   clip?(ctx: CanvasRenderingContext2D, i: number): void;
+  /** Draw what sits on this seat at this depth instead of just in front of `depth`. */
+  seatDepth?(i: number): number;
   /** A stack was just set down here. */
   seated?(i: number, sideways: number): void;
 }

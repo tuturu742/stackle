@@ -40,6 +40,19 @@ const OPEN_ANGLE = Math.PI * 0.92;
  * or stand in the doorway; behind a shut shutter or door they are out of sight
  * and reach. Tapping the chimney starts smoke puffing, and tapping again stops it.
  */
+/** The farmhouse's colours, and the winter town's: walls, trim, roof, chimney (and its cap), snow on the roof. */
+const STYLES = {
+  farm: { wall: '#f5dd8a', trim: '#ead07a', roof: '#e07a5f', chimney: '#c0614f', chimneyTop: '#a9513f', snow: false },
+  town: { wall: '#e9a68b', trim: '#d98f75', roof: '#7d8fa8', chimney: '#a9786a', chimneyTop: '#8f6457', snow: true },
+};
+
+/** The town house's string of bulbs along the eaves: where it hangs, and its colours. */
+const EAVE_Y = WALL_TOP + 12;
+const EAVE_BULBS = 15;
+const BULB_COLORS = ['#f28b82', '#f2c14e', '#8fd18a', '#81c7e8', '#f3a3c4'];
+const HOLLY = '#4f8f5a';
+const BERRY = '#d9463f';
+
 export class House implements Perch {
   /** The rooms seen through the windows; things on the sills are drawn just after. */
   readonly depth = GROUND_Y + 2;
@@ -58,11 +71,17 @@ export class House implements Perch {
   /** Shutters, per window: 0 shut, 1 open. */
   readonly open: number[];
   readonly isOpen: boolean[];
+  /** The town house's eave lights: each bulb on or off. */
+  lights: boolean[] = Array.from({ length: EAVE_BULBS }, () => true);
+
+  private readonly look: (typeof STYLES)['farm'];
 
   constructor(
     readonly x: number,
     openWindows: boolean[] = [false, true, true, false],
+    style: keyof typeof STYLES = 'farm',
   ) {
+    this.look = STYLES[style];
     this.isOpen = [...openWindows];
     this.open = openWindows.map((o) => (o ? 1 : 0));
   }
@@ -144,11 +163,58 @@ export class House implements Perch {
     return this.lamps[i];
   }
 
-  /** At night the lit lanterns glow over the dark. */
+  /** At night the lit lanterns (and the town house's eave lights) glow over the dark. */
   drawGlow(ctx: CanvasRenderingContext2D, night: number): void {
     this.lamps.forEach((lit, i) => {
       if (lit) drawLanternGlow(ctx, this.x + (i ? LAMP_DX : -LAMP_DX), this.lampY, LAMP_COLOR, night);
     });
+    if (!this.look.snow || night <= 0) return;
+    for (const [i, b] of this.eaveBulbs().entries()) {
+      if (!this.lights[i]) continue;
+      const glow = ctx.createRadialGradient(b.x, b.y, 2, b.x, b.y, 24);
+      glow.addColorStop(0, `rgba(255, 236, 170, ${0.5 * night})`);
+      glow.addColorStop(1, 'rgba(255, 236, 170, 0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = night;
+      dot(ctx, b.x, b.y, 6, '#fff3c4');
+      dot(ctx, b.x, b.y, 4, b.color);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /** The bulbs along the eaves, hanging in little swags. */
+  private eaveBulbs(): { x: number; y: number; color: string }[] {
+    const left = this.x - WIDTH / 2 - 20;
+    const step = (WIDTH + 40) / (EAVE_BULBS - 1);
+    return Array.from({ length: EAVE_BULBS }, (_, i) => ({
+      x: left + i * step,
+      y: EAVE_Y + (i % 2 ? 7 : 0),
+      color: BULB_COLORS[i % BULB_COLORS.length],
+    }));
+  }
+
+  /** The town house's eave bulb under this point, or -1. */
+  bulbAt(px: number, py: number, slop: number): number {
+    if (!this.look.snow) return -1;
+    let near = -1;
+    let best = 14 + slop;
+    this.eaveBulbs().forEach((b, i) => {
+      const d = Math.hypot(px - b.x, py - b.y);
+      if (d < best) {
+        best = d;
+        near = i;
+      }
+    });
+    return near;
+  }
+
+  /** Switch one eave bulb; returns whether it is on now. */
+  toggleBulb(i: number): boolean {
+    this.lights[i] = !this.lights[i];
+    return this.lights[i];
   }
 
   chimneyAt(px: number, py: number, slop: number): boolean {
@@ -224,6 +290,35 @@ export class House implements Perch {
       ctx.fillStyle = i < 2 ? '#e6c793' : '#d8c3e3';
       ctx.fillRect(left, top + WIN_H * 0.55, WIN_W, WIN_H * 0.45);
     }
+    // In the town house, a little decorated tree stands in the room downstairs on the right.
+    if (this.look.snow) this.drawRoomTree(ctx, this.winX(1) + 22, this.winTop(1) + WIN_H - 4);
+  }
+
+  private drawRoomTree(ctx: CanvasRenderingContext2D, x: number, bottom: number): void {
+    ctx.fillStyle = '#a7724c';
+    ctx.fillRect(x - 4, bottom - 10, 8, 10);
+    ctx.fillStyle = '#4f8f73';
+    for (const [w, y0, h] of [
+      [40, bottom - 8, 26],
+      [32, bottom - 24, 24],
+      [22, bottom - 40, 22],
+    ]) {
+      ctx.beginPath();
+      ctx.moveTo(x - w / 2, y0);
+      ctx.lineTo(x + w / 2, y0);
+      ctx.lineTo(x, y0 - h);
+      ctx.closePath();
+      ctx.fill();
+    }
+    for (const [dx, dy, c] of [
+      [-10, -14, '#e8665c'],
+      [8, -18, '#6b9fe0'],
+      [-4, -32, '#f2c14e'],
+      [6, -40, '#ef8fb4'],
+    ] as const) {
+      dot(ctx, x + dx, bottom + dy, 3, c);
+    }
+    star(ctx, x, bottom - 64, 6, '#f2c14e');
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -232,19 +327,19 @@ export class House implements Perch {
     const ground = this.frontDepth;
     // Chimney behind the roof, with its smoke.
     this.drawSmoke(ctx);
-    ctx.fillStyle = '#c0614f';
+    ctx.fillStyle = this.look.chimney;
     ctx.fillRect(this.x + CHIMNEY_X, CHIMNEY_TOP, CHIMNEY_W, 100);
-    ctx.fillStyle = '#a9513f';
+    ctx.fillStyle = this.look.chimneyTop;
     ctx.fillRect(this.x + CHIMNEY_X - 5, CHIMNEY_TOP - 4, CHIMNEY_W + 10, 12);
     // Walls with the windows cut out.
-    ctx.fillStyle = '#f5dd8a';
+    ctx.fillStyle = this.look.wall;
     ctx.beginPath();
     ctx.rect(left, WALL_TOP, WIDTH, ground - WALL_TOP);
     for (const i of this.windows) ctx.rect(this.winX(i) - WIN_W / 2, this.winTop(i), WIN_W, WIN_H);
     ctx.rect(this.x - DOOR_W / 2, this.doorTop, DOOR_W, DOOR_H);
     ctx.fill('evenodd');
     // Trim between the floors, and a round window upstairs in the middle.
-    ctx.fillStyle = '#ead07a';
+    ctx.fillStyle = this.look.trim;
     ctx.fillRect(left, FLOOR_Y, WIDTH, 12);
     ctx.fillStyle = '#f6efe0';
     ctx.beginPath();
@@ -255,13 +350,30 @@ export class House implements Perch {
     ctx.arc(this.x, WIN_TOPS[1] + WIN_H / 2, 19, 0, Math.PI * 2);
     ctx.fill();
     // Roof.
-    ctx.fillStyle = '#e07a5f';
+    ctx.fillStyle = this.look.roof;
     ctx.beginPath();
     ctx.moveTo(left - 30, WALL_TOP + 6);
     ctx.lineTo(this.x, ROOF_TOP);
     ctx.lineTo(right + 30, WALL_TOP + 6);
     ctx.closePath();
     ctx.fill();
+    if (this.look.snow) {
+      // A thick layer of snow along the roof, with a soft wavy edge.
+      ctx.fillStyle = '#f7fafd';
+      ctx.beginPath();
+      ctx.moveTo(left - 34, WALL_TOP + 8);
+      ctx.lineTo(this.x, ROOF_TOP - 8);
+      ctx.lineTo(right + 34, WALL_TOP + 8);
+      for (let i = 0; i <= 8; i++) {
+        const t = 1 - i / 8;
+        const px = left - 34 + t * (WIDTH + 68);
+        const along = Math.abs(px - this.x) / (WIDTH / 2 + 34);
+        const py = ROOF_TOP + (WALL_TOP + 6 - ROOF_TOP) * along + 18 + (i % 2) * 8;
+        ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
     // Door frame and step; the door itself is drawn with the shutters.
     ctx.strokeStyle = '#f6efe0';
     ctx.lineWidth = 8;
@@ -279,7 +391,38 @@ export class House implements Perch {
       ctx.strokeRect(wx - WIN_W / 2, top, WIN_W, WIN_H);
       ctx.fillStyle = '#f6efe0';
       ctx.fillRect(wx - WIN_W / 2 - 10, top + WIN_H, WIN_W + 20, 10);
+      // Holly on the sill's corners.
+      if (this.look.snow) for (const side of [-1, 1]) holly(ctx, wx + side * (WIN_W / 2 + 2), top + WIN_H + 4);
     }
+    if (this.look.snow) this.drawFestive(ctx);
+  }
+
+  /** The town house dressed up: a garland over the door, and bulbs along the eaves. */
+  private drawFestive(ctx: CanvasRenderingContext2D): void {
+    // A green garland swagged over the door frame, with berries.
+    const gl = this.x - DOOR_W / 2 - 14;
+    const gr = this.x + DOOR_W / 2 + 14;
+    const gy = this.doorTop - 4;
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      const px = gl + (gr - gl) * t;
+      const py = gy + Math.sin(t * Math.PI * 2) ** 2 * 10;
+      dot(ctx, px, py, 9, i % 2 ? HOLLY : '#5fa06a');
+    }
+    for (const t of [0.25, 0.5, 0.75]) dot(ctx, gl + (gr - gl) * t, gy + 6, 4, BERRY);
+    // The string of bulbs along the eaves: a dark wire and the bulbs, dull when switched off.
+    const bulbs = this.eaveBulbs();
+    ctx.strokeStyle = '#4b4f58';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    bulbs.forEach((b, i) => (i ? ctx.lineTo(b.x, b.y - 5) : ctx.moveTo(b.x, b.y - 5)));
+    ctx.stroke();
+    bulbs.forEach((b, i) => {
+      ctx.fillStyle = '#4b4f58';
+      ctx.fillRect(b.x - 2, b.y - 8, 4, 4);
+      dot(ctx, b.x, b.y, 5, b.color);
+      if (!this.lights[i]) dot(ctx, b.x, b.y, 5, 'rgba(70, 76, 96, 0.5)');
+    });
   }
 
   /** Shutters and the door go on top of whatever sits on the sills or in the doorway. */
@@ -297,6 +440,41 @@ export class House implements Perch {
         ctx.beginPath();
         ctx.arc(hinge + width - 16, this.doorTop + DOOR_H * 0.55, 5, 0, Math.PI * 2);
         ctx.fill();
+      }
+      // The town house's door wears a wreath with a red bow, turning away with the door.
+      if (this.look.snow && width > 20) {
+        const k = width / DOOR_W;
+        const cx = hinge + width / 2;
+        const cy = this.doorTop + 44;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(k, 1);
+        ctx.strokeStyle = HOLLY;
+        ctx.lineWidth = 11;
+        ctx.beginPath();
+        ctx.arc(0, 0, 21, 0, Math.PI * 2);
+        ctx.stroke();
+        for (let i = 0; i < 8; i++) {
+          const a = (i * Math.PI) / 4;
+          dot(ctx, Math.cos(a) * 21, Math.sin(a) * 21, 3, i % 2 ? BERRY : '#6fb07a');
+        }
+        ctx.fillStyle = BERRY;
+        for (const side of [-1, 1]) {
+          ctx.beginPath();
+          ctx.moveTo(0, 20);
+          ctx.lineTo(side * 14, 12);
+          ctx.lineTo(side * 14, 28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(0, 22);
+          ctx.lineTo(side * 8, 40);
+          ctx.lineTo(side * 2, 40);
+          ctx.closePath();
+          ctx.fill();
+        }
+        dot(ctx, 0, 20, 5, '#b8362f');
+        ctx.restore();
       }
     }
     for (const i of this.windows) {
@@ -332,5 +510,41 @@ export class House implements Perch {
       ctx.fill();
     }
     ctx.globalAlpha = 1;
+  }
+}
+
+function dot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rr = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+/** Two holly leaves and three berries. */
+function holly(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.fillStyle = HOLLY;
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.ellipse(x + side * 7, y, 9, 4, side * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const [dx, dy] of [
+    [-3, -3],
+    [3, -3],
+    [0, 2],
+  ]) {
+    dot(ctx, x + dx, y + dy, 3, BERRY);
   }
 }

@@ -1,17 +1,66 @@
 import { STEP } from './config';
 import * as audio from './audio';
 import { Game } from './game';
+import { Hub, type Card } from './hub';
+import { AutumnPreview, SpringPreview, SummerPreview, WinterPreview } from './previews';
 import * as save from './save';
-import { orchard } from './scenes/orchard';
+import type { SceneDef } from './scenes/scene';
+import { summer } from './scenes/summer';
+import { winter } from './scenes/winter';
 import { saveSettings, settings } from './settings';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
-const game = new Game(orchard);
-const saved = save.load();
-if (saved) game.restore(saved);
-// Dev builds only: lets browser tests inspect the scene.
-if (import.meta.env.DEV) Object.assign(window, { game });
+
+// --- Levels: the seasons, in order. Only those with a scene can be played yet.
+
+const SCENES: Record<string, SceneDef> = { summer, winter };
+const cards: Card[] = [
+  { id: 'spring', preview: new SpringPreview(), playable: false },
+  { id: 'summer', preview: new SummerPreview(), playable: true },
+  { id: 'autumn', preview: new AutumnPreview(), playable: false },
+  { id: 'winter', preview: new WinterPreview(), playable: true },
+];
+
+/** The level being played, or null in the hub. */
+let level: { id: string; game: Game } | null = null;
+const hub = new Hub(cards, save.loadHub(), (card) => enter(card.id));
+/** A soft fade from the sky colour when switching between the hub and a level: 1 just switched. */
+let fade = 0;
+
+/**
+ * Into a level, always fresh. Only when the app was reloaded mid-play (`restore`) does it
+ * pick up where it was.
+ */
+function enter(id: string, restore = false): void {
+  const game = new Game(SCENES[id]);
+  const saved = restore ? save.load(id) : null;
+  if (saved) game.restore(saved);
+  game.resize(window.innerWidth, window.innerHeight);
+  game.resume();
+  level = { id, game };
+  save.storeHub(id);
+  save.storePlaying(id);
+  fade = 1;
+  // Dev builds only: lets browser tests inspect the scene.
+  if (import.meta.env.DEV) Object.assign(window, { game });
+}
+
+/** Back to the hub: the level's sounds stop and it is forgotten, so going in again starts fresh. */
+function leave(): void {
+  if (!level) return;
+  level.game.leave();
+  save.forget(level.id);
+  save.storePlaying(null);
+  level = null;
+  fade = 1;
+}
+
+function saveLevel(): void {
+  if (level) save.store(level.id, level.game.snapshot());
+}
+
+if (import.meta.env.DEV) Object.assign(window, { hub, enterLevel: enter, leaveLevel: leave });
 
 let dpr = 1;
 function resize(): void {
@@ -20,10 +69,18 @@ function resize(): void {
   const h = window.innerHeight;
   canvas.width = Math.round(w * dpr);
   canvas.height = Math.round(h * dpr);
-  game.resize(w, h);
+  hub.resize(w, h);
+  level?.game.resize(w, h);
 }
 window.addEventListener('resize', resize);
 resize();
+
+// Reloaded mid-play: straight back into the level, as it was.
+const playing = save.loadPlaying();
+if (playing && SCENES[playing]) {
+  enter(playing, true);
+  fade = 0;
+}
 
 // --- Input: every finger is tracked on its own, so whole-hand taps are fine.
 
@@ -31,25 +88,29 @@ canvas.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   void keepAwake();
   canvas.setPointerCapture(e.pointerId);
-  game.pointerDown(e.pointerId, e.clientX, e.clientY);
+  if (level) level.game.pointerDown(e.pointerId, e.clientX, e.clientY);
+  else hub.pointerDown(e.pointerId, e.clientX, e.clientY);
   cornerDown(e);
 });
 canvas.addEventListener('pointermove', (e) => {
   e.preventDefault();
-  game.pointerMove(e.pointerId, e.clientX, e.clientY);
+  if (level) level.game.pointerMove(e.pointerId, e.clientX, e.clientY);
+  else hub.pointerMove(e.pointerId, e.clientX, e.clientY);
   cornerMove(e);
 });
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const) {
   canvas.addEventListener(type, (e) => {
-    game.pointerUp(e.pointerId);
+    if (level) level.game.pointerUp(e.pointerId);
+    else hub.pointerUp(e.pointerId);
     // iPadOS can cancel a long touch near the top edge while the finger is still
     // there, so only lifting the finger (or moving it away) stops the corner hold.
     if (type === 'pointerup') cornerUp(e);
   });
 }
 
-// --- Parent controls: hold a finger still in the top-left corner for a few
-// seconds. A child tapping or dragging there just plays.
+// --- The corner: hold a finger still in the top-left corner for a few seconds.
+// In a level that goes back to the hub; in the hub it opens the parent
+// controls. A child tapping or dragging there just plays.
 
 const CORNER = 140;
 const CORNER_HOLD_MS = 3000;
@@ -90,7 +151,12 @@ function cornerDown(e: PointerEvent): void {
     timer: window.setTimeout(() => {
       corner = null;
       ring.classList.remove('on');
-      game.pointerUp(id);
+      if (level) {
+        level.game.pointerUp(id);
+        leave();
+        return;
+      }
+      hub.cancel(id);
       showSettings();
       panel.hidden = false;
     }, CORNER_HOLD_MS),
@@ -187,13 +253,13 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') void keepAwake();
 });
 
-// --- The farm is remembered on the device: every couple of seconds, and when the app is left.
+// --- Each level is remembered on the device: every couple of seconds, when it is left, and when the app is left.
 
-setInterval(() => save.store(game.snapshot()), 2000);
+setInterval(saveLevel, 2000);
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') save.store(game.snapshot());
+  if (document.visibilityState === 'hidden') saveLevel();
 });
-window.addEventListener('pagehide', () => save.store(game.snapshot()));
+window.addEventListener('pagehide', saveLevel);
 
 // --- Works offline once installed: the service worker keeps a copy of the app.
 
@@ -209,10 +275,19 @@ function frame(now: number): void {
   acc += Math.min(0.1, (now - last) / 1000);
   last = now;
   while (acc >= STEP) {
-    game.step();
+    if (level) level.game.step();
+    else hub.update(STEP);
+    fade = Math.max(0, fade - STEP * 3);
     acc -= STEP;
   }
-  game.draw(ctx, dpr);
+  if (level) level.game.draw(ctx, dpr);
+  else hub.draw(ctx, dpr);
+  // A soft fade in after switching between the hub and a level.
+  if (fade > 0 && !settings.reduceMotion) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = `rgba(255, 255, 255, ${fade * 0.8})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

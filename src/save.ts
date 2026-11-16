@@ -33,44 +33,110 @@ export interface Saved {
   barns?: number[][];
   dispensers?: number[];
   baskets?: number[];
+  /** The winter town: each stall's next thing, each vehicle's next gift or parcel. */
+  stalls?: number[];
+  offers?: number[];
+  /** Which song each boombox plays, 0 for off. */
+  songs?: number[];
   /** Which farmhouse windows are open. */
   windows?: boolean[][];
   /** Which farmhouse doors are open. */
   doors?: boolean[];
 }
 
-const KEY = 'stackle.scene';
-let last = '';
+/**
+ * The level being played is kept under its own key until it is left, so if the app is
+ * reloaded mid-play (iPadOS does that to home-screen apps) it opens straight back into it.
+ * Leaving a level forgets it: going in again starts fresh. Summer's farm was once the
+ * only scene, kept under the old key.
+ */
+const PREFIX = 'stackle.scene.';
+const OLD_KEY = 'stackle.scene';
+/** Which level's card the hub shows when the app opens. */
+const HUB_KEY = 'stackle.hub';
+/** The level being played when the app was last left, if it was not left for the hub. */
+const PLAYING_KEY = 'stackle.playing';
+const last = new Map<string, string>();
 let enabled = true;
 
-/** Forget the farm, so the app opens fresh next time; nothing more is saved until then. */
+/** Forget every level, so the app opens fresh next time; nothing more is saved until then. */
 export function clear(): void {
   enabled = false;
   try {
-    localStorage.removeItem(KEY);
+    for (const key of Object.keys(localStorage)) if (key.startsWith(OLD_KEY) || key === HUB_KEY || key === PLAYING_KEY) localStorage.removeItem(key);
   } catch {
     // Nothing to forget.
   }
 }
 
-export function load(): Saved | null {
+export function load(level: string): Saved | null {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null') as Saved | null;
+    let text = localStorage.getItem(PREFIX + level);
+    if (text === null && level === 'summer') text = localStorage.getItem(OLD_KEY);
+    const saved = JSON.parse(text ?? 'null') as Saved | null;
     return saved?.version === 1 && Array.isArray(saved.stacks) ? saved : null;
   } catch {
     return null;
   }
 }
 
-/** Write the scene, only when it changed. */
-export function store(saved: Saved): void {
+/** Write a level's scene, only when it changed. */
+export function store(level: string, saved: Saved): void {
   if (!enabled) return;
   const text = JSON.stringify(saved);
-  if (text === last) return;
+  if (text === last.get(level)) return;
   try {
-    localStorage.setItem(KEY, text);
-    last = text;
+    localStorage.setItem(PREFIX + level, text);
+    last.set(level, text);
   } catch {
     // Storage full or blocked: play goes on, just without remembering.
+  }
+}
+
+/** The level being played, or null for the hub. */
+export function loadPlaying(): string | null {
+  try {
+    return localStorage.getItem(PLAYING_KEY) ?? (localStorage.getItem(OLD_KEY) !== null ? 'summer' : null);
+  } catch {
+    return null;
+  }
+}
+
+export function storePlaying(level: string | null): void {
+  if (!enabled) return;
+  try {
+    if (level) localStorage.setItem(PLAYING_KEY, level);
+    else localStorage.removeItem(PLAYING_KEY);
+  } catch {
+    // Not remembered; the app opens on the hub.
+  }
+}
+
+/** Forget a level that was left, so it starts fresh next time. */
+export function forget(level: string): void {
+  last.delete(level);
+  try {
+    localStorage.removeItem(PREFIX + level);
+    if (level === 'summer') localStorage.removeItem(OLD_KEY);
+  } catch {
+    // Nothing to forget.
+  }
+}
+
+/** The hub's card, as it was left. */
+export function loadHub(): string | null {
+  try {
+    return localStorage.getItem(HUB_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function storeHub(level: string): void {
+  if (!enabled) return;
+  try {
+    localStorage.setItem(HUB_KEY, level);
+  } catch {
+    // Not remembered; the hub opens on its first playable card.
   }
 }

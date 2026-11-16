@@ -1,15 +1,16 @@
 import * as audio from '../audio';
 import { ANIMAL, drawAnimal, type AnimalKind } from './animals';
 import { FRUIT, drawFruit, type FruitKind } from './fruit';
-import { GOODS, drawGood, isGood, type GoodFoodKind, type GoodKind, type ToyKind } from './goods';
+import { GOODS, drawCandleFlame, drawGood, isCandle, isGood, isSnowball, isToy, type GoodFoodKind, type GoodKind, type ToyKind, type WinterThingKind } from './goods';
+import { drawTop, newTop, startSpin, stopTop, updateTop, SPIN_SECONDS, type TopState } from './top';
 import { HAT, drawHat, type HatKind } from './hat';
 import { VEG, drawVeg, type VegKind } from './veg';
 import { settings } from '../settings';
 
 /** Food: fruit, vegetables, hay, treats, pies and eggs. */
 export type FoodKind = FruitKind | VegKind | GoodFoodKind;
-/** Everything that can go into a puddle or a bin: food, and hats. */
-export type LooseKind = FoodKind | HatKind;
+/** Everything that can go into a puddle or a bin: food, hats, and the winter things that come back. */
+export type LooseKind = FoodKind | HatKind | WinterThingKind;
 export type ItemKind = LooseKind | AnimalKind | ToyKind;
 
 /** Seconds per bite while an animal eats. */
@@ -64,7 +65,7 @@ export class Item {
   readonly radius: number;
   /** Stacked items sit this far apart. */
   readonly height: number;
-  /** Only things that come back (food, hats) can go into a puddle or bin. Animals and toys never can. */
+  /** Only things that come back (food, hats, gifts, snowballs...) can go into a puddle or bin. Animals and toys never can. */
   readonly disposable: boolean;
   readonly food: boolean;
   readonly animal: AnimalKind | null;
@@ -83,6 +84,13 @@ export class Item {
   playing = 0;
   /** True for the one step in which it finished eating. */
   justAte = false;
+  /** The spinning top: how it spins and which side it lies on. */
+  readonly top: TopState | null;
+  /** A snowball in a snowman: the head gets a face, the middle buttons and twig arms. */
+  snowman: 'head' | 'body' | null = null;
+  /** A candle: lit or not (a tap switches it), and whether something stands on it, hiding its wick. */
+  lit = true;
+  covered = false;
   /** Meals eaten: every third one ends in a little dance. */
   private meals = 0;
   /** Seconds of dancing left. */
@@ -94,13 +102,15 @@ export class Item {
       const thing = kind as LooseKind | ToyKind;
       ({ radius: this.radius, height: this.height } = sizeOf(thing));
       this.food = isFood(thing);
-      this.disposable = this.food || isHat(thing);
+      this.disposable = !isToy(thing);
       this.animal = null;
+      this.top = thing === 'top' ? newTop() : null;
     } else {
       this.radius = ANIMAL[kind as AnimalKind].radius;
       this.height = ANIMAL[kind as AnimalKind].height;
       this.disposable = this.food = false;
       this.animal = kind as AnimalKind;
+      this.top = null;
     }
   }
 
@@ -131,9 +141,25 @@ export class Item {
     this.mouth = 0;
   }
 
+  /** Dropped or thrown, the top lands spinning. */
+  spin(): void {
+    if (!this.top) return;
+    startSpin(this.top);
+    audio.spinTop(SPIN_SECONDS);
+  }
+
+  /** Picked up: the top stands upright and stops. */
+  lift(): void {
+    if (this.top) stopTop(this.top);
+  }
+
   update(dt: number): void {
     this.squash = Math.max(0, this.squash - dt * 1.5);
     this.justAte = false;
+    if (this.top && updateTop(this.top, dt)) {
+      this.squash = 0.2;
+      audio.topFace(this.top.side);
+    }
     if (!this.animal) return;
     this.playing = Math.max(0, this.playing - dt);
     this.dance = Math.max(0, this.dance - dt);
@@ -202,6 +228,67 @@ export class Item {
       drawAnimal(ctx, this.animal, x, y - hop, angle, sx * turn, sy, face);
       if (this.muddy > 0.02) this.drawMud(ctx, x, y, angle);
     }
-    else drawLoose(ctx, this.kind as LooseKind | ToyKind, x, y, angle, sx, sy);
+    else if (this.top) drawTop(ctx, this.top, x, y, angle, sx, sy, settings.reduceMotion);
+    else {
+      drawLoose(ctx, this.kind as LooseKind | ToyKind, x, y, angle, sx, sy);
+      if (isCandle(this.kind) && !this.covered) drawCandleFlame(ctx, x, y, angle, sx, sy, this.lit, performance.now() / 1000);
+      if (this.snowman) drawSnowman(ctx, this.snowman, x, y, angle, this.radius);
+    }
   }
+}
+
+/** A snowman's face on its head, or buttons and twig arms on its middle. */
+function drawSnowman(ctx: CanvasRenderingContext2D, part: 'head' | 'body', x: number, y: number, angle: number, r: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  const ink = '#4a3f45';
+  ctx.fillStyle = ink;
+  if (part === 'head') {
+    for (const dx of [-0.32, 0.32]) {
+      ctx.beginPath();
+      ctx.arc(dx * r, -0.2 * r, Math.max(2.5, r * 0.09), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // A carrot nose.
+    ctx.fillStyle = '#f08a3c';
+    ctx.beginPath();
+    ctx.moveTo(-0.08 * r, 0.02 * r);
+    ctx.lineTo(0.55 * r, 0.12 * r);
+    ctx.lineTo(-0.06 * r, 0.2 * r);
+    ctx.closePath();
+    ctx.fill();
+    // A smile of little coal dots.
+    ctx.fillStyle = ink;
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI * (0.25 + i * 0.125);
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, Math.max(1.6, r * 0.05), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    for (const dy of [-0.35, 0, 0.35]) {
+      ctx.beginPath();
+      ctx.arc(0, dy * r, Math.max(2.5, r * 0.08), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Twig arms, waving up.
+    ctx.strokeStyle = '#7a5a46';
+    ctx.lineWidth = Math.max(3, r * 0.08);
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * r * 0.85, -0.1 * r);
+      ctx.lineTo(side * r * 1.6, -0.6 * r);
+      ctx.moveTo(side * r * 1.35, -0.43 * r);
+      ctx.lineTo(side * r * 1.45, -0.75 * r);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+/** Is this a snowball (they stack into snowmen)? */
+export function snowballItem(item: Item): boolean {
+  return isSnowball(item.kind);
 }
