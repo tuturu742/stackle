@@ -12,18 +12,17 @@ export interface Card {
 
 /** A finger that moves less than this (screen pixels) is a tap. */
 const TAP_SLOP = 14;
-/** How far past the first or last card a swipe can pull, in cards. */
-const OVERPULL = 0.2;
 /** The parents icon in the top left corner (screen pixels). */
 const PARENTS = { x: 56, y: 56, r: 34 };
 
 /**
- * Where the app opens: one full-screen card per level, side by side. Swipe left
- * or right to look through them; tap a card to go in. The top left corner holds
+ * Where the app opens: one full-screen card per level, side by side in a loop
+ * (past the last comes the first again). Swipe left or right to look through
+ * them; tap a card to go in. The top left corner holds
  * the hidden parent controls (see main.ts); a parents icon marks it.
  */
 export class Hub {
-  /** Which card is in view, as a position along the row: 1.5 is half way from the second to the third. */
+  /** Which card is in view, as a position along the loop: 1.5 is half way from the second to the third. Any number; it wraps. */
   private pos: number;
   private target: number;
   private finger: { id: number; startX: number; startY: number; startPos: number; lastX: number; lastT: number; speed: number; moved: number } | null = null;
@@ -45,7 +44,19 @@ export class Hub {
 
   /** The card in view (or being snapped to). */
   get current(): Card {
-    return this.cards[this.target];
+    return this.cards[this.index(this.target)];
+  }
+
+  /** The card at a position along the loop. */
+  private index(pos: number): number {
+    const n = this.cards.length;
+    return ((Math.round(pos) % n) + n) % n;
+  }
+
+  /** How far card i is from a position, the short way round the loop. */
+  private away(i: number, pos: number): number {
+    const n = this.cards.length;
+    return ((((i - pos) % n) + n * 1.5) % n) - n / 2;
   }
 
   resize(cssW: number, cssH: number): void {
@@ -68,19 +79,14 @@ export class Hub {
     f.speed = f.speed * 0.5 + (-(cssX - f.lastX) / this.cssW / dt) * 0.5;
     f.lastX = cssX;
     f.lastT = now;
-    const last = this.cards.length - 1;
-    let pos = f.startPos - (cssX - f.startX) / this.cssW;
-    // Past either end it pulls less and less.
-    if (pos < 0) pos = -OVERPULL * (1 - Math.exp(pos / OVERPULL));
-    if (pos > last) pos = last + OVERPULL * (1 - Math.exp(-(pos - last) / OVERPULL));
-    this.pos = pos;
+    this.pos = f.startPos - (cssX - f.startX) / this.cssW;
   }
 
   /** The finger is taken for something else (the corner hold): it settles without a tap. */
   cancel(id: number): void {
     if (this.finger?.id !== id) return;
     this.finger = null;
-    this.target = Math.max(0, Math.min(this.cards.length - 1, Math.round(this.pos)));
+    this.target = Math.round(this.pos);
   }
 
   pointerUp(id: number): void {
@@ -92,7 +98,7 @@ export class Hub {
     const from = Math.round(f.startPos);
     let to = Math.round(this.pos);
     if (Math.abs(f.speed) > 0.8) to = from + Math.sign(f.speed);
-    to = Math.max(0, Math.min(this.cards.length - 1, Math.max(from - 1, Math.min(from + 1, to))));
+    to = Math.max(from - 1, Math.min(from + 1, to));
     if (to !== this.target) audio.swoosh();
     this.target = to;
   }
@@ -101,7 +107,7 @@ export class Hub {
   private tap(cssX: number, cssY: number): void {
     // The parents corner is not for going in.
     if (Math.hypot(cssX - PARENTS.x, cssY - PARENTS.y) < PARENTS.r + 20) return;
-    const card = this.cards[Math.round(this.pos)];
+    const card = this.cards[this.index(this.pos)];
     if (!card) return;
     this.target = Math.round(this.pos);
     if (card.playable) {
@@ -120,7 +126,10 @@ export class Hub {
     if (!this.finger) {
       const k = settings.reduceMotion ? 1 : Math.min(1, dt * 9);
       this.pos += (this.target - this.pos) * k;
-      if (Math.abs(this.target - this.pos) < 0.001) this.pos = this.target;
+      if (Math.abs(this.target - this.pos) < 0.001) {
+        // Settled: bring the position back round into the first lap.
+        this.target = this.pos = this.index(this.target);
+      }
     }
     for (const card of this.cards) card.preview.update?.(dt);
   }
@@ -134,7 +143,7 @@ export class Hub {
     const left = -(viewW - SCREEN_W) / 2;
     const right = left + viewW;
     this.cards.forEach((card, i) => {
-      const offset = (i - this.pos) * this.cssW;
+      const offset = this.away(i, this.pos) * this.cssW;
       if (offset <= -this.cssW || offset >= this.cssW) return;
       const c = card.preview.colors;
       ctx.save();
@@ -196,7 +205,7 @@ export class Hub {
     const y = this.cssH - 22;
     for (let i = 0; i < n; i++) {
       const x = this.cssW / 2 + (i - (n - 1) / 2) * gap;
-      const near = Math.max(0, 1 - Math.abs(i - this.pos));
+      const near = Math.max(0, 1 - Math.abs(this.away(i, this.pos)));
       ctx.fillStyle = `rgba(255, 255, 255, ${0.45 + 0.5 * near})`;
       ctx.beginPath();
       ctx.arc(x, y, 6 + 2 * near, 0, Math.PI * 2);

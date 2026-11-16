@@ -117,7 +117,7 @@ from it out of committed files: the repo is public.
   `references/` (gitignored) holds screenshots of Sago Mini Farm as inspiration for the
   kinds of play only. Never copy its characters, art, buildings or scene layouts.
 - Levels: the app opens on a hub (`src/hub.ts`), one full-screen card per season (spring,
-  summer, autumn, winter) side by side. A swipe moves one card, a tap anywhere on a playable card
+  summer, autumn, winter) side by side in a loop (after winter comes spring again). A swipe moves one card, a tap anywhere on a playable card
   goes in, and a card still to come only wiggles. Each card shows a few highlights of its level,
   drawn with the level's own objects (`src/previews.ts`). Summer is the farm and Winter the snowy
   town; spring and autumn are placeholder cards until their scenes exist. Leaving a level for the hub resets it: going in

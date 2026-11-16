@@ -96,6 +96,11 @@ export class Stall {
     return this.spotY - h / 2 + (1 - up) * (h + 12);
   }
 
+  /** How far either side of its middle it stands, hiding whatever is behind. */
+  get half(): number {
+    return this.shape.half;
+  }
+
   hits(px: number, py: number, slop: number): boolean {
     const s = this.shape;
     return Math.abs(px - this.x) <= s.half + slop && py >= this.depth - s.height - slop && py <= this.depth + slop;

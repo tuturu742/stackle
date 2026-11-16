@@ -45,6 +45,9 @@ export class SantaChair implements Perch {
     return i === 0 ? this.depth + 0.1 : this.frontDepth + 0.1;
   }
 
+  /** How far either side of its middle it stands, hiding whatever is behind. */
+  readonly half = ARM_DX + 30;
+
   hits(px: number, py: number, slop: number): boolean {
     return Math.abs(px - this.x) <= ARM_DX + 30 + slop && py >= this.depth - BACK_UP - 20 - slop && py <= this.depth + slop;
   }

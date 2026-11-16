@@ -1315,6 +1315,11 @@ export class Game {
       const front = wall instanceof House ? wall.frontDepth : wall.depth;
       if (floor !== null && wall.behindWall(stack.x, floor)) floor = front + 2;
     }
+    // Nor out of sight behind a tall stall or Santa's chair: it stands just in front.
+    for (const tall of [...this.stalls, ...this.chairs]) {
+      const front = tall instanceof SantaChair ? tall.frontDepth : tall.depth;
+      if (floor !== null && floor < front + 2 && Math.abs(this.delta(stack.x, tall.x)) < tall.half + stack.radius * 0.5) floor = front + 2;
+    }
     stack.fixedFloor = floor;
     stack.state = 'falling';
   }
