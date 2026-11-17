@@ -24,6 +24,51 @@ const cards: Card[] = [
   { id: 'winter', preview: new WinterPreview(), playable: true },
 ];
 
+// --- The home button, in a level: faint at first; a tap makes it bright for a few
+// seconds, and a second tap while it is bright goes back to the hub. A single
+// stray tap from the child only lights it up.
+
+const HOME_ARMED_MS = 3000;
+const homeButton = document.getElementById('home')!;
+let homeTimer = 0;
+
+function showHome(on: boolean): void {
+  homeButton.hidden = !on;
+  homeButton.classList.remove('armed');
+  clearTimeout(homeTimer);
+  if (import.meta.env.DEV) hint?.style.setProperty('display', on ? 'none' : 'block');
+}
+
+homeButton.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  clearTimeout(homeTimer);
+  if (homeButton.classList.contains('armed')) {
+    leave();
+    return;
+  }
+  homeButton.classList.add('armed');
+  homeTimer = window.setTimeout(() => homeButton.classList.remove('armed'), HOME_ARMED_MS);
+});
+
+// Dev builds only: a dashed circle marks where to hold in the hub, so testers can find it.
+let hint: HTMLDivElement | null = null;
+if (import.meta.env.DEV) {
+  hint = document.createElement('div');
+  Object.assign(hint.style, {
+    position: 'fixed',
+    left: '10px',
+    top: '10px',
+    width: '120px',
+    height: '120px',
+    borderRadius: '50%',
+    border: '4px dashed rgba(200, 60, 60, 0.8)',
+    boxSizing: 'border-box',
+    pointerEvents: 'none',
+  });
+  document.body.appendChild(hint);
+}
+
 /** The level being played, or null in the hub. */
 let level: { id: string; game: Game } | null = null;
 const hub = new Hub(cards, save.loadHub(), (card) => enter(card.id));
@@ -44,6 +89,7 @@ function enter(id: string, restore = false): void {
   save.storeHub(id);
   save.storePlaying(id);
   fade = 1;
+  showHome(true);
   // Dev builds only: lets browser tests inspect the scene.
   if (import.meta.env.DEV) Object.assign(window, { game });
 }
@@ -56,6 +102,7 @@ function leave(): void {
   save.storePlaying(null);
   level = null;
   fade = 1;
+  showHome(false);
 }
 
 function saveLevel(): void {
@@ -110,9 +157,8 @@ for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'] as const
   });
 }
 
-// --- The corner: hold a finger still in the top-left corner for a few seconds.
-// In a level that goes back to the hub; in the hub it opens the parent
-// controls. A child tapping or dragging there just plays.
+// --- The corner, in the hub: hold a finger still in the top-left corner for a
+// few seconds to open the parent controls. A child tapping or dragging there just plays.
 
 const CORNER = 140;
 const CORNER_HOLD_MS = 3000;
@@ -121,29 +167,13 @@ const panel = document.getElementById('parent')!;
 const muteButton = document.getElementById('mute')!;
 const motionButton = document.getElementById('motion')!;
 const resetButton = document.getElementById('reset')!;
-// Dev builds only: a dashed circle marks where to hold, so testers can find it.
-if (import.meta.env.DEV) {
-  const hint = document.createElement('div');
-  Object.assign(hint.style, {
-    position: 'fixed',
-    left: '10px',
-    top: '10px',
-    width: `${CORNER - 20}px`,
-    height: `${CORNER - 20}px`,
-    borderRadius: '50%',
-    border: '4px dashed rgba(200, 60, 60, 0.8)',
-    boxSizing: 'border-box',
-    pointerEvents: 'none',
-  });
-  document.body.appendChild(hint);
-}
 
 /** A faint ring under the finger that fills while the corner is held, so a parent knows it is working. */
 const ring = document.getElementById('hold')!;
 let corner: { id: number; timer: number } | null = null;
 
 function cornerDown(e: PointerEvent): void {
-  if (corner || e.clientX > CORNER || e.clientY > CORNER) return;
+  if (level || corner || e.clientX > CORNER || e.clientY > CORNER) return;
   const id = e.pointerId;
   ring.style.left = `${e.clientX}px`;
   ring.style.top = `${e.clientY}px`;
@@ -153,11 +183,6 @@ function cornerDown(e: PointerEvent): void {
     timer: window.setTimeout(() => {
       corner = null;
       ring.classList.remove('on');
-      if (level) {
-        level.game.pointerUp(id);
-        leave();
-        return;
-      }
       hub.cancel(id);
       showSettings();
       panel.hidden = false;

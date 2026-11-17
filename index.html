@@ -129,6 +129,31 @@
           opacity 0.4s ease 1s,
           transform 2s linear 1s;
       }
+      /* Back to the hub from a level: faint until tapped, then a second tap while it is bright goes home. */
+      #home {
+        position: fixed;
+        left: 16px;
+        top: 16px;
+        width: 84px;
+        height: 84px;
+        border: none;
+        border-radius: 50%;
+        background: #f6f3ec;
+        box-shadow: 0 5px 0 #d8d2c4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.3;
+        transition: opacity 0.3s ease;
+        touch-action: none;
+        cursor: pointer;
+      }
+      #home[hidden] {
+        display: none;
+      }
+      #home.armed {
+        opacity: 1;
+      }
       canvas {
         position: fixed;
         inset: 0;
@@ -142,6 +167,13 @@
   <body>
     <canvas id="game"></canvas>
     <div id="hold"></div>
+    <button type="button" id="home" aria-label="Back to the seasons" hidden>
+      <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true" fill="#4b5560" stroke="#4b5560" stroke-width="4" stroke-linejoin="round">
+        <path d="M6 23 L24 7 L42 23 Z" />
+        <path d="M11 22 H37 V41 H11 Z" />
+        <path d="M20 41 V30 H28 V41 Z" fill="#f6f3ec" stroke="none" />
+      </svg>
+    </button>
     <div id="start">
       <button type="button" aria-label="Play">
         <svg width="72" height="80" viewBox="0 0 72 80" aria-hidden="true">

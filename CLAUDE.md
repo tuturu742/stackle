@@ -214,8 +214,10 @@ from it out of committed files: the repo is public.
   - A jack-o'-lantern is lit; a tap switches it, and lit it glows at night like a candle.
   - A ring of toadstools (`Mushrooms`) plays a note per toadstool, low to high left to right.
   - New animals: squirrel, hedgehog.
-- Hidden parent controls: holding a finger still in the top-left corner (140 px) for 3 s leaves
-  a level for the hub. In the hub, the same hold (under a parents icon) opens an icon-only panel; a faint ring fills under the finger after the first second. Only lifting or
+- Back to the hub: in a level, a home button sits in the top-left corner, faint (30% opacity). A tap
+  makes it fully visible for 3 s; a second tap while it is bright leaves the level, so a single stray
+  tap only lights it up. Hidden parent controls: in the hub, holding a finger still in the top-left
+  corner (140 px) for 3 s (under a parents icon) opens an icon-only panel; a faint ring fills under the finger after the first second. Only lifting or
   moving the finger away stops the hold, since iPadOS may cancel a long touch near the top edge. The panel has: sound, reduce motion (no sway, squash, glide; small splashes; gentler swing
   and windmill), start every level again (hold 2 s), close. Settings live in `src/settings.ts`.
 - Target 60 fps on the iPad 9th gen: keep object counts modest.

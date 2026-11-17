@@ -35,6 +35,7 @@ the newest version.
 
 ## Parent controls
 
-Hold a finger still in the top-left corner for three seconds. In a season, that goes back to
-the row of seasons. There, under the parents icon, it opens the controls. Icons: sound on or off,
+In a season, the faint home button in the top-left corner goes back to the row of seasons: tap
+it once to light it up, then tap it again while it is bright. In the row of seasons, hold a finger
+still in the top-left corner (under the parents icon) for three seconds to open the controls. Icons: sound on or off,
 reduce motion, start every season again (hold), close.
