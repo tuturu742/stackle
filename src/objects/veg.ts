@@ -1,11 +1,15 @@
-// Vegetables from the beds, drawn from rounded shapes like the fruit.
+// What grows in the beds, drawn from rounded shapes like the fruit: the farm's
+// vegetables, autumn's pumpkins, and spring's flowers (cut flowers are not food).
 
-export type VegKind = 'carrot' | 'tomato' | 'cabbage' | 'corn';
+export type FlowerKind = 'tulip' | 'daffodil' | 'daisy';
+export type VegKind = 'carrot' | 'tomato' | 'cabbage' | 'corn' | 'pumpkin' | FlowerKind;
 
 interface VegLook {
   /** Half the width. */
   radius: number;
   height: number;
+  /** How much of it shows above the soil once ripe, if not half. */
+  shows?: number;
 }
 
 export const VEG: Record<VegKind, VegLook> = {
@@ -13,7 +17,20 @@ export const VEG: Record<VegKind, VegLook> = {
   tomato: { radius: 30, height: 56 },
   cabbage: { radius: 34, height: 60 },
   corn: { radius: 18, height: 66 },
+  pumpkin: { radius: 44, height: 66, shows: 0.8 },
+  tulip: { radius: 20, height: 56, shows: 0.7 },
+  daffodil: { radius: 20, height: 56, shows: 0.7 },
+  daisy: { radius: 20, height: 56, shows: 0.7 },
 };
+
+/** The farm's vegetables: a picked plot in their bed grows back one of these. */
+export const GARDEN_VEG: VegKind[] = ['carrot', 'tomato', 'cabbage', 'corn'];
+export const FLOWERS: FlowerKind[] = ['tulip', 'daffodil', 'daisy'];
+
+/** Flowers grow in beds like vegetables, but nobody eats them. */
+export function isFlower(kind: string): kind is FlowerKind {
+  return (FLOWERS as string[]).includes(kind);
+}
 
 const LEAF = '#6dbb5a';
 
@@ -36,7 +53,111 @@ export function drawVeg(
   ctx.restore();
 }
 
+/** A cut flower's stem and one leaf, from the bloom down to the cut end. */
+function stem(ctx: CanvasRenderingContext2D): void {
+  ctx.strokeStyle = '#5fae55';
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, -10);
+  ctx.quadraticCurveTo(2, 10, 0, 27);
+  ctx.stroke();
+  ctx.fillStyle = LEAF;
+  ctx.beginPath();
+  ctx.ellipse(8, 12, 4, 11, 0.6, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 const DRAW: Record<VegKind, (ctx: CanvasRenderingContext2D) => void> = {
+  pumpkin(ctx) {
+    // A curly stem and a leaf, then the ribbed body: side lobes behind, the middle in front.
+    ctx.strokeStyle = '#7a8a3c';
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -24);
+    ctx.quadraticCurveTo(-2, -32, 4, -35);
+    ctx.stroke();
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#6dbb5a';
+    ctx.beginPath();
+    ctx.arc(10, -32, 5, Math.PI, Math.PI * 2.6);
+    ctx.stroke();
+    ctx.fillStyle = LEAF;
+    ctx.beginPath();
+    ctx.ellipse(-12, -28, 10, 5, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e9853a';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 22, 4, 22, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f39a48';
+    ctx.beginPath();
+    ctx.ellipse(0, 3, 22, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f6b26b';
+    ctx.globalAlpha *= 0.7;
+    ctx.beginPath();
+    ctx.ellipse(-8, -10, 5, 9, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha /= 0.7;
+  },
+
+  tulip(ctx) {
+    stem(ctx);
+    // A cup of three petals.
+    ctx.fillStyle = '#ec6f8c';
+    for (const [dx, tilt] of [
+      [-7, -0.25],
+      [7, 0.25],
+    ]) {
+      ctx.beginPath();
+      ctx.ellipse(dx, -16, 8, 13, tilt, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f58ea6';
+    ctx.beginPath();
+    ctx.ellipse(0, -15, 8, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  daffodil(ctx) {
+    stem(ctx);
+    // Pale petals all round, and a deep yellow trumpet in the middle.
+    ctx.fillStyle = '#fbe58a';
+    for (let i = 0; i < 6; i++) {
+      const a = (i * Math.PI) / 3;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * 9, -16 + Math.sin(a) * 9, 7, 5, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f2b33d';
+    ctx.beginPath();
+    ctx.arc(0, -16, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e39a2a';
+    ctx.beginPath();
+    ctx.arc(0, -16, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
+  daisy(ctx) {
+    stem(ctx);
+    ctx.fillStyle = '#fbf8f0';
+    for (let i = 0; i < 10; i++) {
+      const a = (i * Math.PI) / 5;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * 10, -16 + Math.sin(a) * 10, 6, 3.5, a, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f2c14e';
+    ctx.beginPath();
+    ctx.arc(0, -16, 6, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
   carrot(ctx) {
     ctx.fillStyle = LEAF;
     for (const [dx, tilt] of [

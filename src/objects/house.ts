@@ -40,11 +40,54 @@ const OPEN_ANGLE = Math.PI * 0.92;
  * or stand in the doorway; behind a shut shutter or door they are out of sight
  * and reach. Tapping the chimney starts smoke puffing, and tapping again stops it.
  */
-/** The farmhouse's colours, and the winter town's: walls, trim, roof, chimney (and its cap), snow on the roof. */
+/**
+ * The farmhouse's colours, the winter town's and the autumn wood's log cabin: walls, trim, roof,
+ * chimney (and its cap), window and door frames, shutters, the door; snow on the roof (town), or
+ * walls of round logs with a shingled roof and a stone chimney (cabin).
+ */
 const STYLES = {
-  farm: { wall: '#f5dd8a', trim: '#ead07a', roof: '#e07a5f', chimney: '#c0614f', chimneyTop: '#a9513f', snow: false },
-  town: { wall: '#e9a68b', trim: '#d98f75', roof: '#7d8fa8', chimney: '#a9786a', chimneyTop: '#8f6457', snow: true },
+  farm: {
+    wall: '#f5dd8a',
+    trim: '#ead07a',
+    roof: '#e07a5f',
+    chimney: '#c0614f',
+    chimneyTop: '#a9513f',
+    frame: '#f6efe0',
+    shutter: ['#6fa3c9', '#5f93b9', '#5a8cb3'],
+    door: '#5fa8a0',
+    snow: false,
+    logs: false,
+  },
+  town: {
+    wall: '#e9a68b',
+    trim: '#d98f75',
+    roof: '#7d8fa8',
+    chimney: '#a9786a',
+    chimneyTop: '#8f6457',
+    frame: '#f6efe0',
+    shutter: ['#6fa3c9', '#5f93b9', '#5a8cb3'],
+    door: '#5fa8a0',
+    snow: true,
+    logs: false,
+  },
+  cabin: {
+    wall: '#b07a50',
+    trim: '#946140',
+    roof: '#7c5b43',
+    chimney: '#a39c90',
+    chimneyTop: '#8c867c',
+    frame: '#d9b98c',
+    shutter: ['#c0703f', '#a85f34', '#9c5630'],
+    door: '#8a5a3c',
+    snow: false,
+    logs: true,
+  },
 };
+/** The cabin's logs: how tall each round log is, and their colours. */
+const LOG_H = 26;
+const LOG_LIGHT = '#c08a5e';
+const LOG_SHADE = '#946140';
+const MOSS = '#8aa35a';
 
 /** The town house's string of bulbs along the eaves: where it hangs, and its colours. */
 const EAVE_Y = WALL_TOP + 12;
@@ -279,7 +322,7 @@ export class House implements Perch {
     ctx.fill();
     // The open door, seen edge-on against the inside of the hinge side.
     if (this.door > 0.5) {
-      ctx.fillStyle = '#4f958d';
+      ctx.fillStyle = this.look.logs ? '#6e4830' : '#4f958d';
       ctx.fillRect(dl, this.doorTop, 14, DOOR_H);
     }
     for (const i of this.windows) {
@@ -329,15 +372,20 @@ export class House implements Perch {
     this.drawSmoke(ctx);
     ctx.fillStyle = this.look.chimney;
     ctx.fillRect(this.x + CHIMNEY_X, CHIMNEY_TOP, CHIMNEY_W, 100);
+    if (this.look.logs) this.drawStones(ctx);
     ctx.fillStyle = this.look.chimneyTop;
     ctx.fillRect(this.x + CHIMNEY_X - 5, CHIMNEY_TOP - 4, CHIMNEY_W + 10, 12);
     // Walls with the windows cut out.
+    const walls = () => {
+      ctx.beginPath();
+      ctx.rect(left, WALL_TOP, WIDTH, ground - WALL_TOP);
+      for (const i of this.windows) ctx.rect(this.winX(i) - WIN_W / 2, this.winTop(i), WIN_W, WIN_H);
+      ctx.rect(this.x - DOOR_W / 2, this.doorTop, DOOR_W, DOOR_H);
+    };
     ctx.fillStyle = this.look.wall;
-    ctx.beginPath();
-    ctx.rect(left, WALL_TOP, WIDTH, ground - WALL_TOP);
-    for (const i of this.windows) ctx.rect(this.winX(i) - WIN_W / 2, this.winTop(i), WIN_W, WIN_H);
-    ctx.rect(this.x - DOOR_W / 2, this.doorTop, DOOR_W, DOOR_H);
+    walls();
     ctx.fill('evenodd');
+    if (this.look.logs) this.drawLogs(ctx, walls, left, right, ground);
     // Trim between the floors, and a round window upstairs in the middle.
     ctx.fillStyle = this.look.trim;
     ctx.fillRect(left, FLOOR_Y, WIDTH, 12);
@@ -357,6 +405,7 @@ export class House implements Perch {
     ctx.lineTo(right + 30, WALL_TOP + 6);
     ctx.closePath();
     ctx.fill();
+    if (this.look.logs) this.drawShingles(ctx, left, right);
     if (this.look.snow) {
       // A thick layer of snow along the roof, with a soft wavy edge.
       ctx.fillStyle = '#f7fafd';
@@ -375,7 +424,7 @@ export class House implements Perch {
       ctx.fill();
     }
     // Door frame and step; the door itself is drawn with the shutters.
-    ctx.strokeStyle = '#f6efe0';
+    ctx.strokeStyle = this.look.frame;
     ctx.lineWidth = 8;
     ctx.strokeRect(this.x - DOOR_W / 2, this.doorTop, DOOR_W, DOOR_H + 4);
     ctx.fillStyle = '#e8d3a6';
@@ -386,15 +435,135 @@ export class House implements Perch {
     for (const i of this.windows) {
       const wx = this.winX(i);
       const top = this.winTop(i);
-      ctx.strokeStyle = '#f6efe0';
+      ctx.strokeStyle = this.look.frame;
       ctx.lineWidth = 8;
       ctx.strokeRect(wx - WIN_W / 2, top, WIN_W, WIN_H);
-      ctx.fillStyle = '#f6efe0';
+      ctx.fillStyle = this.look.frame;
       ctx.fillRect(wx - WIN_W / 2 - 10, top + WIN_H, WIN_W + 20, 10);
       // Holly on the sill's corners.
       if (this.look.snow) for (const side of [-1, 1]) holly(ctx, wx + side * (WIN_W / 2 + 2), top + WIN_H + 4);
     }
     if (this.look.snow) this.drawFestive(ctx);
+    if (this.look.logs) this.drawHarvest(ctx, ground);
+  }
+
+  /** The cabin's walls of round logs: a shaded seam under each, clipped round the windows and door, and log ends at the corners. */
+  private drawLogs(ctx: CanvasRenderingContext2D, walls: () => void, left: number, right: number, ground: number): void {
+    ctx.save();
+    walls();
+    ctx.clip('evenodd');
+    for (let y = ground - LOG_H; y > WALL_TOP - LOG_H; y -= LOG_H) {
+      ctx.fillStyle = LOG_LIGHT;
+      ctx.fillRect(left, y + 4, WIDTH, 6);
+      ctx.fillStyle = LOG_SHADE;
+      ctx.fillRect(left, y + LOG_H - 5, WIDTH, 5);
+    }
+    ctx.restore();
+    // The log ends sticking out past each corner, with their rings.
+    for (const cx of [left - 4, right + 4]) {
+      for (let y = ground - LOG_H / 2; y > WALL_TOP; y -= LOG_H) {
+        dot(ctx, cx, y, LOG_H / 2 + 1, '#d9b48a');
+        dot(ctx, cx, y, LOG_H / 2 - 5, '#c99f74');
+        dot(ctx, cx, y, 3, '#b08660');
+      }
+    }
+  }
+
+  /** Rounded stones on the cabin's chimney. */
+  private drawStones(ctx: CanvasRenderingContext2D): void {
+    const x0 = this.x + CHIMNEY_X;
+    ctx.fillStyle = '#b8b1a4';
+    for (let row = 0; row < 6; row++) {
+      for (let k = 0; k < 3; k++) {
+        const sx = x0 + 4 + k * 12 + (row % 2) * 6;
+        if (sx + 8 > x0 + CHIMNEY_W) continue;
+        ctx.beginPath();
+        ctx.ellipse(sx + 4, CHIMNEY_TOP + 14 + row * 15, 5.5, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Rows of shingles on the cabin's roof, darker toward each row's lower edge, and soft patches of moss. */
+  private drawShingles(ctx: CanvasRenderingContext2D, left: number, right: number): void {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(left - 30, WALL_TOP + 6);
+    ctx.lineTo(this.x, ROOF_TOP);
+    ctx.lineTo(right + 30, WALL_TOP + 6);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = '#6c4f3a';
+    for (let y = ROOF_TOP + 16; y < WALL_TOP + 6; y += 18) {
+      for (let x = left - 40 + ((y / 18) % 2) * 14; x < right + 40; x += 28) {
+        ctx.beginPath();
+        ctx.roundRect(x, y, 26, 6, [0, 0, 6, 6]);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = MOSS;
+    for (const [dx, dy, rx, ry] of [
+      [-120, 70, 34, 10],
+      [60, 40, 26, 8],
+      [150, 82, 30, 9],
+      [-30, 18, 18, 6],
+    ]) {
+      ctx.beginPath();
+      ctx.ellipse(this.x + dx, ROOF_TOP + dy, rx, ry, (dx < 0 ? -1 : 1) * 0.24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** The cabin dressed for autumn: a string of dried leaves over the door, and a pumpkin by the step. */
+  private drawHarvest(ctx: CanvasRenderingContext2D, ground: number): void {
+    const gl = this.x - DOOR_W / 2 - 16;
+    const gr = this.x + DOOR_W / 2 + 16;
+    const gy = this.doorTop - 6;
+    ctx.strokeStyle = '#8a6a4a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12;
+      const px = gl + (gr - gl) * t;
+      const py = gy + Math.sin(t * Math.PI) * 14;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    const leaves = ['#e8873a', '#d9603b', '#f2b544', '#b9773f'];
+    for (let i = 1; i < 12; i++) {
+      const t = i / 12;
+      const px = gl + (gr - gl) * t;
+      const py = gy + Math.sin(t * Math.PI) * 14 + 6;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate((i % 2 ? 0.5 : -0.5) + Math.PI / 2);
+      ctx.fillStyle = leaves[i % leaves.length];
+      ctx.beginPath();
+      ctx.moveTo(-9, 0);
+      ctx.quadraticCurveTo(0, -6, 9, 0);
+      ctx.quadraticCurveTo(0, 6, -9, 0);
+      ctx.fill();
+      ctx.restore();
+    }
+    // A pumpkin sitting by the step, to the right of the door.
+    const px = this.x + DOOR_W / 2 + 40;
+    const py = ground - 22;
+    ctx.fillStyle = '#e8873a';
+    for (const dx of [-12, 12, 0]) {
+      ctx.beginPath();
+      ctx.ellipse(px + dx, py, 15, 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#f2a04e';
+    ctx.beginPath();
+    ctx.ellipse(px - 4, py - 6, 5, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#7a8a4a';
+    ctx.beginPath();
+    ctx.roundRect(px - 3, py - 26, 6, 10, 3);
+    ctx.fill();
   }
 
   /** The town house dressed up: a garland over the door, and bulbs along the eaves. */
@@ -431,7 +600,7 @@ export class House implements Perch {
     const hinge = this.x - DOOR_W / 2;
     const width = DOOR_W * Math.cos((this.door * Math.PI) / 2);
     if (width > 4) {
-      ctx.fillStyle = '#5fa8a0';
+      ctx.fillStyle = this.look.door;
       ctx.beginPath();
       ctx.roundRect(hinge, this.doorTop, width, DOOR_H, [Math.min(30, width / 2), Math.min(30, width / 2), 0, 0]);
       ctx.fill();
@@ -488,10 +657,11 @@ export class House implements Perch {
         const x1 = hinge - side * Math.min(0, w);
         const a = Math.min(x0, x1);
         const width = Math.max(2, Math.abs(x1 - x0));
-        ctx.fillStyle = w >= 0 ? '#6fa3c9' : '#5f93b9';
+        const [face, back, slat] = this.look.shutter;
+        ctx.fillStyle = w >= 0 ? face : back;
         ctx.fillRect(a, top, width, WIN_H);
         if (width > 14) {
-          ctx.fillStyle = '#5a8cb3';
+          ctx.fillStyle = slat;
           for (let y = top + 14; y < top + WIN_H - 8; y += 16) ctx.fillRect(a + 6, y, width - 12, 4);
         }
       }

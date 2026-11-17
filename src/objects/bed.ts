@@ -1,6 +1,6 @@
 import { GROUND_Y } from '../config';
 import * as audio from '../audio';
-import { drawVeg, VEG, type VegKind } from './veg';
+import { drawVeg, FLOWERS, GARDEN_VEG, isFlower, VEG, type VegKind } from './veg';
 
 export interface Plot {
   x: number;
@@ -17,11 +17,19 @@ const RIPE_POP_SECONDS = 0.3;
 /** How much of a vegetable shows above the soil: a peek while growing, half once ripe. */
 const GROWING_SHOWS = 0.12;
 const RIPE_SHOWS = 0.5;
-const KINDS = Object.keys(VEG) as VegKind[];
 
-/** A raised wooden bed of vegetables that grow back only while it rains on them. */
+/** What a picked plot grows back: flowers in a flower bed, pumpkins in a pumpkin patch, else vegetables. */
+function cropsLike(kind: VegKind): VegKind[] {
+  if (isFlower(kind)) return FLOWERS;
+  if (kind === 'pumpkin') return ['pumpkin'];
+  return GARDEN_VEG;
+}
+
+/** A raised wooden bed of vegetables (or flowers) that grow back only while it rains on them. */
 export class Bed {
   readonly plots: Plot[];
+  /** What its picked plots grow back. */
+  private readonly crops: VegKind[];
   readonly soilY = GROUND_Y - 30;
   /** Drawing order: it stands just behind the ground line things are dropped on. */
   readonly depth = GROUND_Y + 20;
@@ -31,6 +39,7 @@ export class Bed {
     readonly width: number,
     kinds: VegKind[],
   ) {
+    this.crops = cropsLike(kinds[0]);
     this.plots = kinds.map((kind, i) => ({
       x: x - width / 2 + ((i + 0.5) * width) / kinds.length,
       kind,
@@ -48,7 +57,7 @@ export class Bed {
     }
     const t = Math.min(1, plot.ripeAge / RIPE_POP_SECONDS);
     const pop = 1 + Math.sin(t * Math.PI) * 0.15;
-    return { y: this.soilY + h / 2 - RIPE_SHOWS * h * pop, scale: 1 };
+    return { y: this.soilY + h / 2 - (VEG[plot.kind].shows ?? RIPE_SHOWS) * h * pop, scale: 1 };
   }
 
   /** The nearest ripe vegetable within reach of the point, if any. */
@@ -83,7 +92,7 @@ export class Bed {
     const { y } = this.placeOf(plot);
     plot.growth = 0;
     plot.ripeAge = 0;
-    plot.kind = KINDS[Math.floor(Math.random() * KINDS.length)];
+    plot.kind = this.crops[Math.floor(Math.random() * this.crops.length)];
     return y;
   }
 

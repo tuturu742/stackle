@@ -1,4 +1,4 @@
-// Farm and winter animals, drawn front-on from rounded shapes. Faces stay simple: two dot
+// Farm, winter, spring and autumn animals, drawn front-on from rounded shapes. Faces stay simple: two dot
 // eyes and a smile, a mouth that opens for food, and closed happy eyes.
 
 export type AnimalKind =
@@ -16,7 +16,13 @@ export type AnimalKind =
   | 'reindeer'
   | 'polarbear'
   | 'fox'
-  | 'seal';
+  | 'seal'
+  | 'frog'
+  | 'chick'
+  | 'lamb'
+  | 'squirrel'
+  | 'hedgehog'
+  | 'dog';
 
 interface AnimalLook {
   /** Half the width. */
@@ -42,6 +48,12 @@ export const ANIMAL: Record<AnimalKind, AnimalLook> = {
   polarbear: { radius: 56, height: 108, mouthY: 16 },
   fox: { radius: 40, height: 76, mouthY: 8 },
   seal: { radius: 50, height: 72, mouthY: 8 },
+  frog: { radius: 30, height: 40, mouthY: 6 },
+  chick: { radius: 22, height: 36, mouthY: -4 },
+  lamb: { radius: 34, height: 60, mouthY: 6 },
+  squirrel: { radius: 30, height: 62, mouthY: 0 },
+  hedgehog: { radius: 32, height: 40, mouthY: 10 },
+  dog: { radius: 42, height: 80, mouthY: 10 },
 };
 
 export interface Face {
@@ -79,7 +91,7 @@ export function drawAnimal(
   // While chewing the mouth keeps opening and closing.
   const open = face.chew > 0 ? 0.25 + 0.25 * Math.sin(face.chew * 18) : face.asleep ? 0 : face.mouth;
   const ink = kind === 'sheep' ? '#f5efe6' : INK;
-  if (kind === 'hen' || kind === 'penguin') drawBeak(ctx, look.mouthY, open);
+  if (kind === 'hen' || kind === 'penguin' || kind === 'chick') drawBeak(ctx, look.mouthY, open);
   else if (kind === 'duck') drawBill(ctx, look.mouthY, open);
   else drawMouth(ctx, look.mouthY, open, ink);
   drawEyes(ctx, EYES[kind], face.asleep ? 'asleep' : face.happy > 0 ? 'happy' : 'open', ink);
@@ -103,6 +115,12 @@ const EYES: Record<AnimalKind, [number, number]> = {
   polarbear: [15, -22],
   fox: [10, -12],
   seal: [10, -14],
+  frog: [12, -15],
+  chick: [7, -10],
+  lamb: [8, -8],
+  squirrel: [8, -12],
+  hedgehog: [8, -1],
+  dog: [11, -10],
 };
 
 function drawEyes(
@@ -645,6 +663,53 @@ const BODY: Record<AnimalKind, (ctx: CanvasRenderingContext2D) => void> = {
     ctx.fill();
   },
 
+  dog(ctx) {
+    // A puppy sitting up: a tail wagging gently behind, a round tan body with a cream chest.
+    const wag = Math.sin(performance.now() / 160) * 0.35;
+    ctx.save();
+    ctx.translate(26, 24);
+    ctx.rotate(-0.9 + wag);
+    ctx.fillStyle = '#d9a46c';
+    ctx.beginPath();
+    ctx.ellipse(0, -12, 7, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    blob(ctx, '#e3b27c', [[0, 18, 28]]);
+    blob(ctx, '#f6e6cc', [[0, 22, 16]]);
+    // Front paws.
+    blob(ctx, '#f6e6cc', [
+      [-12, 38, 8],
+      [12, 38, 8],
+    ]);
+    // A round head with a pale muzzle; one ear darker than the other, both flopping down.
+    blob(ctx, '#e8bb86', [[0, -10, 27]]);
+    ctx.fillStyle = '#9c6a48';
+    ctx.beginPath();
+    ctx.ellipse(-26, -6, 10, 18, 0.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d29a62';
+    ctx.beginPath();
+    ctx.ellipse(26, -6, 10, 18, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+    blob(ctx, '#f6e6cc', [[0, 4, 13]]);
+    // A patch round one eye.
+    ctx.fillStyle = '#d29a62';
+    ctx.beginPath();
+    ctx.ellipse(11, -11, 8, 7, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // A red collar with a round golden tag.
+    ctx.fillStyle = '#e0675e';
+    ctx.beginPath();
+    ctx.roundRect(-19, 20, 38, 7, 3.5);
+    ctx.fill();
+    blob(ctx, '#f2c14e', [[0, 31, 4.5]]);
+    // The nose.
+    ctx.fillStyle = '#4a3f45';
+    ctx.beginPath();
+    ctx.ellipse(0, -1, 5, 3.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  },
+
   fox(ctx) {
     // A bushy tail with a white tip, curled up beside it.
     ctx.save();
@@ -730,5 +795,180 @@ const BODY: Record<AnimalKind, (ctx: CanvasRenderingContext2D) => void> = {
       ctx.fill();
     }
     blob(ctx, '#4a3f45', [[0, -4, 4]]);
+  },
+
+  frog(ctx) {
+    // Splayed back feet, a wide round body with a pale belly, and big eyes on top.
+    ctx.fillStyle = '#6aa865';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 24, 16, 13, 6, side * -0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#7dbb72', [[0, 4, 26]]);
+    ctx.fillStyle = '#7dbb72';
+    ctx.beginPath();
+    ctx.ellipse(0, 6, 30, 16, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#d7ecc0';
+    ctx.beginPath();
+    ctx.ellipse(0, 12, 17, 9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Front feet tucked in.
+    blob(ctx, '#6aa865', [
+      [-10, 19, 5],
+      [10, 19, 5],
+    ]);
+    // Eye bumps with white eyes; the pupils are drawn on top.
+    blob(ctx, '#7dbb72', [
+      [-12, -15, 10],
+      [12, -15, 10],
+    ]);
+    blob(ctx, '#fbf8f2', [
+      [-12, -15, 7.5],
+      [12, -15, 7.5],
+    ]);
+    blob(ctx, '#f3b7b0', [
+      [-20, 2, 3.5],
+      [20, 2, 3.5],
+    ]);
+  },
+
+  chick(ctx) {
+    // A fluffy round chick: little orange feet, stubby wings, a tuft on top.
+    ctx.strokeStyle = '#f2a541';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * 7, 12);
+      ctx.lineTo(side * 7, 18);
+      ctx.moveTo(side * 3, 18);
+      ctx.lineTo(side * 11, 18);
+      ctx.stroke();
+    }
+    ctx.fillStyle = '#f7d65c';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 17, 4, 6, 9, side * -0.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#fbe27a', [
+      [0, 3, 16],
+      [0, -8, 13],
+      [-3, -21, 4],
+      [3, -22, 3.5],
+    ]);
+    blob(ctx, '#fff0a8', [[0, 7, 9]]);
+    blob(ctx, '#f6b9a4', [
+      [-11, -5, 3],
+      [11, -5, 3],
+    ]);
+  },
+
+  lamb(ctx) {
+    legs(ctx, 13, 12, 30, '#8a7466', '#5e4a42');
+    // Cream wool, fluffy all over, with a soft brown face and floppy ears.
+    blob(ctx, '#f6efe0', [
+      [-20, 6, 14],
+      [-6, 12, 15],
+      [10, 12, 15],
+      [22, 4, 13],
+      [-14, -8, 13],
+      [14, -8, 13],
+      [0, -2, 16],
+    ]);
+    ctx.fillStyle = '#b89a86';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * 19, -10, 9, 5, side * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#c9ad97';
+    ctx.beginPath();
+    ctx.roundRect(-14, -24, 28, 38, 14);
+    ctx.fill();
+    blob(ctx, '#f6efe0', [
+      [-6, -24, 7],
+      [3, -27, 7],
+      [9, -22, 6],
+    ]);
+    blob(ctx, '#d9c0ad', [[0, 6, 8]]);
+  },
+
+  squirrel(ctx) {
+    // A big bushy tail curling up behind, with a lighter curl at the tip.
+    ctx.fillStyle = '#c4673f';
+    ctx.beginPath();
+    ctx.ellipse(20, 6, 14, 26, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(26, -18, 13, 13, 0, 0, Math.PI * 2);
+    ctx.fill();
+    blob(ctx, '#d98a5e', [[29, -21, 7]]);
+    // Sitting up: a round body, a cream tummy, little paws held together.
+    blob(ctx, '#cf7448', [
+      [0, 14, 17],
+      [0, -12, 15],
+    ]);
+    // Tufted ears.
+    for (const side of [-1, 1]) {
+      ctx.fillStyle = '#cf7448';
+      ctx.beginPath();
+      ctx.moveTo(side * 14, -18);
+      ctx.lineTo(side * 13, -33);
+      ctx.lineTo(side * 4, -24);
+      ctx.fill();
+      ctx.fillStyle = '#9b4f33';
+      ctx.beginPath();
+      ctx.arc(side * 13, -32, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    blob(ctx, '#f4e2c8', [
+      [0, 18, 11],
+      [-6, -2, 6],
+      [6, -2, 6],
+    ]);
+    blob(ctx, '#b85c38', [
+      [-5, 12, 4.5],
+      [5, 12, 4.5],
+      [-8, 29, 5],
+      [8, 29, 5],
+    ]);
+    blob(ctx, '#4a3f45', [[0, -5, 2.8]]);
+  },
+
+  hedgehog(ctx) {
+    // A dome of soft rounded spines, a pale face peeking out in front, a dark nose.
+    blob(ctx, '#7a5c48', [
+      [-22, 2, 12],
+      [22, 2, 12],
+      [-16, -10, 12],
+      [16, -10, 12],
+      [-6, -16, 12],
+      [6, -16, 12],
+      [0, 4, 22],
+    ]);
+    blob(ctx, '#94735c', [
+      [-18, -4, 6],
+      [-8, -12, 6],
+      [8, -12, 6],
+      [18, -4, 6],
+      [-24, 8, 5],
+      [24, 8, 5],
+    ]);
+    blob(ctx, '#6b4f3d', [
+      [-12, 18, 6],
+      [12, 18, 6],
+    ]);
+    ctx.fillStyle = '#efdcc4';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 16, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+    blob(ctx, '#f3b7b0', [
+      [-11, 6, 3],
+      [11, 6, 3],
+    ]);
+    blob(ctx, '#4a3f45', [[0, 5, 3.5]]);
   },
 };

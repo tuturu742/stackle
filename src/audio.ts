@@ -199,7 +199,13 @@ export type AnimalSound =
   | 'reindeer'
   | 'polarbear'
   | 'fox'
-  | 'seal';
+  | 'seal'
+  | 'frog'
+  | 'chick'
+  | 'lamb'
+  | 'squirrel'
+  | 'hedgehog'
+  | 'dog';
 
 export function animal(kind: AnimalSound): void {
   switch (kind) {
@@ -230,6 +236,13 @@ export function animal(kind: AnimalSound): void {
       voice({ wave: 'sawtooth', from: 300, to: 380, duration: 0.18, volume: 0.22, filter: 800, q: 2 });
       noise(0.08, 400, 0.12, 0.25);
       break;
+    case 'dog':
+      // Two soft, friendly little woofs.
+      for (const delay of [0, 0.22]) {
+        voice({ wave: 'sawtooth', from: 360, to: 250, duration: 0.12, volume: 0.28, filter: 900, q: 2, delay });
+        noise(0.05, 700, 0.05, delay);
+      }
+      break;
     case 'cat':
       voice({ wave: 'sawtooth', from: 520, to: 780, duration: 0.22, volume: 0.22, filter: 1400, q: 2.5 });
       voice({ wave: 'sawtooth', from: 780, to: 460, duration: 0.4, volume: 0.22, filter: 1600, filterTo: 900, q: 2.5, delay: 0.2 });
@@ -257,6 +270,24 @@ export function animal(kind: AnimalSound): void {
       for (const delay of [0, 0.22]) {
         voice({ wave: 'sawtooth', from: 260, to: 200, duration: 0.14, volume: 0.32, filter: 600, q: 3, delay });
       }
+      break;
+    case 'frog':
+      // A soft two-part croak: rib-bit.
+      voice({ wave: 'square', from: 180, to: 150, duration: 0.12, volume: 0.22, filter: 500, q: 4, vibrato: [60, 25] });
+      voice({ wave: 'square', from: 210, to: 160, duration: 0.16, volume: 0.22, filter: 520, q: 4, vibrato: [60, 25], delay: 0.17 });
+      break;
+    case 'chick':
+      for (const delay of [0, 0.15]) tone(2600, 3300, 0.07, 0.1, delay);
+      break;
+    case 'lamb':
+      voice({ wave: 'sawtooth', from: 520, to: 470, duration: 0.45, volume: 0.24, filter: 1500, q: 1.6, vibrato: [8, 30] });
+      break;
+    case 'squirrel':
+      for (const delay of [0, 0.06, 0.12, 0.18, 0.24]) voice({ wave: 'square', from: 1500, to: 1200, duration: 0.04, volume: 0.1, filter: 2000, q: 3, delay });
+      break;
+    case 'hedgehog':
+      for (const delay of [0, 0.14, 0.26]) noise(0.07, 1400, 0.07, delay);
+      tone(700, 620, 0.06, 0.05, 0.36);
       break;
     case 'hen':
       for (const [delay, from] of [
@@ -834,4 +865,82 @@ export function jingle(): void {
     tone(f, f * 0.99, 0.12, 0.05, i * 0.08);
     noise(0.04, 6000, 0.02, i * 0.08);
   }
+}
+
+// --- Spring and autumn ---------------------------------------------------
+
+/** An egg hatches in the nest: crack, crack, then a peep. */
+export function hatch(): void {
+  noise(0.04, 2400, 0.12);
+  noise(0.05, 2000, 0.12, 0.22);
+  tone(2600, 3300, 0.08, 0.1, 0.5);
+  tone(2700, 3400, 0.08, 0.1, 0.64);
+}
+
+/** Bees come out of the hive: a soft buzzing that drifts and fades. */
+export function bees(): void {
+  for (const [delay, from] of [
+    [0, 210],
+    [0.1, 240],
+    [0.25, 225],
+  ]) {
+    voice({ wave: 'sawtooth', from, to: from * 1.1, duration: 1.3, volume: 0.04, filter: 550, filterTo: 450, q: 1, vibrato: [35, 20], delay });
+  }
+}
+
+/** The campfire is lit: a few soft crackles. */
+/** An axe comes down on a log: a woody knock. */
+export function chop(): void {
+  tone(220, 140, 0.08, 0.2);
+  noise(0.06, 1400, 0.12);
+}
+
+/** Wood laid on the campfire: it flares up with a crackle. */
+export function flare(): void {
+  noise(0.4, 900, 0.06);
+  for (const delay of [0.05, 0.18, 0.3]) noise(0.03, 3000, 0.07, delay);
+}
+
+export function crackle(): void {
+  for (const delay of [0, 0.13, 0.21, 0.4, 0.55, 0.72]) noise(0.03, 2600 + Math.random() * 1500, 0.08 + Math.random() * 0.05, delay);
+  noise(0.6, 500, 0.04);
+}
+
+// Five mushrooms, low to high, on a pentatonic scale.
+const MUSHROOM_NOTES = [262, 294, 330, 392, 440];
+
+/** A mushroom is tapped: a springy note that bends up and settles. */
+export function boing(i: number): void {
+  const f = MUSHROOM_NOTES[Math.max(0, Math.min(MUSHROOM_NOTES.length - 1, i))];
+  tone(f * 0.75, f, 0.08, 0.16);
+  tone(f, f, 0.3, 0.12, 0.07);
+  tone(f * 2, f * 2, 0.15, 0.03, 0.07);
+}
+
+/** A pile of dry leaves is stirred. */
+export function leaves(): void {
+  noise(0.3, 3200, 0.05);
+  noise(0.2, 2200, 0.04, 0.08);
+  for (const delay of [0.03, 0.11, 0.19]) noise(0.03, 4500, 0.04, delay);
+}
+
+/** A pumpkin is carved: a gentle scrape or two. */
+export function carve(): void {
+  noise(0.22, 1600, 0.06);
+  noise(0.18, 1900, 0.05, 0.3);
+}
+
+/** The cider press turns: a wooden creak, then a little pour. */
+export function press(): void {
+  tone(180, 140, 0.3, 0.08);
+  noise(0.25, 900, 0.03);
+  for (let i = 0; i < 4; i++) tone(900 + i * 60, 700 + i * 60, 0.06, 0.05, 0.4 + i * 0.07);
+}
+
+/** A rainbow appears: a soft rising shimmer. */
+export function rainbow(): void {
+  [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => {
+    tone(f, f, 0.6, 0.06, i * 0.09);
+    tone(f * 2, f * 2, 0.3, 0.015, i * 0.09 + 0.02);
+  });
 }

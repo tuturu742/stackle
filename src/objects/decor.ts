@@ -4,7 +4,7 @@ import { settings } from '../settings';
 import type { Item } from './item';
 import type { Perch } from './perch';
 
-export type DecorKind = 'bush' | 'rock' | 'flowers';
+export type DecorKind = 'bush' | 'rock' | 'flowers' | 'leafpile' | 'log';
 
 /** The fence's top rail, where birds sit. */
 export const FENCE_TOP = GROUND_Y - 46;
@@ -30,11 +30,28 @@ export function drawFence(ctx: CanvasRenderingContext2D, left: number, right: nu
 }
 
 const FLOWER_COLORS = ['#f28b82', '#f6c26b', '#b39ddb', '#f7f3ea', '#81c7e8'];
+const LEAF_COLORS = ['#e8873a', '#d9603b', '#f2b544', '#b9773f', '#e4a03c'];
+
+/** A soft leaf shape, pointed at both ends, centred on (x, y). */
+function leaf(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, angle: number, color: string): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(-size, 0);
+  ctx.quadraticCurveTo(0, -size * 0.7, size, 0);
+  ctx.quadraticCurveTo(0, size * 0.7, -size, 0);
+  ctx.fill();
+  ctx.restore();
+}
 
 /**
  * Scenery along the farm. Bushes rustle and flowers wiggle with a note when
  * tapped. A bush is also a hiding place for one animal: let go anywhere over
- * the bush it goes in out of sight, and a few shakes bring it out again.
+ * the bush it goes in out of sight, and a few shakes bring it out again. A pile
+ * of autumn leaves is a hiding place just the same; a tap puffs leaves up out of it.
+ * So is a hollow fallen log in the autumn wood: a tap rocks it and a leaf or two slip off.
  */
 export class Decor implements Perch {
   /** Behind anything standing on the ground. */
@@ -51,8 +68,13 @@ export class Decor implements Perch {
     private readonly seed = 0,
   ) {}
 
+  /** Bushes, leaf piles and hollow logs are hiding places for one animal. */
+  get hiding(): boolean {
+    return this.kind === 'bush' || this.kind === 'leafpile' || this.kind === 'log';
+  }
+
   get seatCount(): number {
-    return this.kind === 'bush' ? 1 : 0;
+    return this.hiding ? 1 : 0;
   }
 
   seatX(): number {
@@ -101,14 +123,14 @@ export class Decor implements Perch {
 
   hits(px: number, py: number, slop: number): boolean {
     if (this.kind === 'rock') return false;
-    const w = this.kind === 'bush' ? 70 : 40;
-    const h = this.kind === 'bush' ? 80 : 60;
+    const w = this.kind === 'bush' ? 70 : this.kind === 'leafpile' ? 80 : this.kind === 'log' ? 95 : 40;
+    const h = this.kind === 'bush' ? 80 : this.kind === 'log' ? 72 : 60;
     return Math.abs(px - this.x) <= w + slop && py <= GROUND_Y + 10 && py >= GROUND_Y - h - slop;
   }
 
   tap(): void {
     this.wiggle = 1;
-    if (this.kind === 'bush') audio.rustle();
+    if (this.hiding) audio.rustle();
     else audio.flowerNote(this.seed);
   }
 
@@ -130,6 +152,10 @@ export class Decor implements Perch {
       ctx.beginPath();
       ctx.ellipse(this.x - 8, GROUND_Y - 20, 12, 6, -0.3, 0, Math.PI * 2);
       ctx.fill();
+    } else if (this.kind === 'leafpile') {
+      this.drawLeafPile(ctx, amount);
+    } else if (this.kind === 'log') {
+      this.drawLog(ctx, w * 0.04, amount);
     } else if (this.kind === 'bush') {
       ctx.save();
       ctx.translate(this.x, GROUND_Y);
@@ -176,6 +202,120 @@ export class Decor implements Perch {
         ctx.fill();
       }
     }
+  }
+
+  /**
+   * A big hollow log lying along the ground, its open end turned toward the
+   * viewer, with moss on top and a little toadstool. Just after a tap it rocks,
+   * and a couple of leaves slip off its back.
+   */
+  private drawLog(ctx: CanvasRenderingContext2D, rock: number, amount: number): void {
+    const x = this.x;
+    const g = GROUND_Y + 4;
+    ctx.save();
+    ctx.translate(x, g);
+    ctx.rotate(rock);
+    // The bark: a long rounded body, darker underneath, with a few grooves.
+    ctx.fillStyle = '#8a5f42';
+    ctx.beginPath();
+    ctx.roundRect(-92, -64, 150, 62, 30);
+    ctx.fill();
+    ctx.fillStyle = '#7a523a';
+    ctx.beginPath();
+    ctx.roundRect(-90, -26, 146, 24, [0, 0, 24, 24]);
+    ctx.fill();
+    ctx.fillStyle = '#9c6d4c';
+    for (const [dx, dy, w] of [
+      [-70, -50, 44],
+      [-30, -40, 56],
+      [-60, -16, 38],
+    ]) {
+      ctx.beginPath();
+      ctx.roundRect(dx, dy, w, 5, 2.5);
+      ctx.fill();
+    }
+    // Moss along its top.
+    ctx.fillStyle = '#8aa35a';
+    for (const [dx, r] of [
+      [-70, 14],
+      [-48, 18],
+      [-24, 13],
+      [-4, 15],
+    ]) {
+      ctx.beginPath();
+      ctx.arc(dx, -62, r, Math.PI, Math.PI * 2);
+      ctx.fill();
+    }
+    // The open end, seen at an angle: a ring of pale wood round a dark hollow.
+    ctx.fillStyle = '#d7b58a';
+    ctx.beginPath();
+    ctx.ellipse(58, -33, 30, 34, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#c49c6e';
+    ctx.beginPath();
+    ctx.ellipse(58, -33, 24, 28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#4a3326';
+    ctx.beginPath();
+    ctx.ellipse(60, -32, 18, 22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // A small toadstool at its foot.
+    ctx.fillStyle = '#f3ead8';
+    ctx.beginPath();
+    ctx.roundRect(-84, -18, 7, 16, 3);
+    ctx.fill();
+    ctx.fillStyle = '#d9603b';
+    ctx.beginPath();
+    ctx.ellipse(-80, -18, 13, 9, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f7efe1';
+    ctx.beginPath();
+    ctx.arc(-84, -22, 2, 0, Math.PI * 2);
+    ctx.arc(-76, -21, 1.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // A leaf or two resting on its back. After a tap they slip off and fade, as new ones settle back.
+    const t = 1 - this.wiggle;
+    const fall = Math.min(1, t * 1.3);
+    for (let i = 0; i < 2; i++) {
+      const color = LEAF_COLORS[(i + this.seed) % LEAF_COLORS.length];
+      ctx.globalAlpha = 1 - this.wiggle;
+      leaf(ctx, x - 40 + i * 50, g - 70, 11, i * 2, color);
+      if (this.wiggle <= 0) continue;
+      ctx.globalAlpha = this.wiggle;
+      const lx = x - 40 + i * 50 + fall * (i ? 30 : -30) * amount + Math.sin(t * 10 + i) * 5 * fall;
+      leaf(ctx, lx, g - 70 + fall * 66, 11, i * 2 + t * 4 * fall, color);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /** A low mound of leaves; just after a tap, a few fly up out of it and flutter back down. */
+  private drawLeafPile(ctx: CanvasRenderingContext2D, amount: number): void {
+    const x = this.x;
+    ctx.fillStyle = '#c9773b';
+    ctx.beginPath();
+    ctx.ellipse(x, GROUND_Y + 2, 82, 50, 0, Math.PI, Math.PI * 2);
+    ctx.fill();
+    // Loose leaves lying all over the mound, the same every time.
+    for (let i = 0; i < 40; i++) {
+      const a = Math.PI * (0.06 + 0.88 * ((i * 0.618 + this.seed * 0.13) % 1));
+      const reach = 0.2 + 0.75 * ((i * 0.7549 + 0.3) % 1);
+      const lx = x - Math.cos(a) * 78 * reach;
+      const ly = GROUND_Y + 2 - Math.sin(a) * 48 * reach;
+      leaf(ctx, lx, ly, 11 + (i % 3) * 2, i * 1.7, LEAF_COLORS[(i + this.seed) % LEAF_COLORS.length]);
+    }
+    if (this.wiggle <= 0) return;
+    // The puff: leaves rise, spread and drift back down as the wiggle fades.
+    const t = 1 - this.wiggle;
+    for (let i = 0; i < 9; i++) {
+      const dir = (i / 8 - 0.5) * 2;
+      const up = Math.sin(Math.min(1, t * 1.6) * Math.PI) * (70 + (i % 3) * 22) * amount;
+      const lx = x + dir * (30 + t * 50) * amount + Math.sin(t * 12 + i) * 6;
+      const ly = GROUND_Y - 40 - up;
+      ctx.globalAlpha = Math.min(1, this.wiggle * 2);
+      leaf(ctx, lx, ly, 10, t * 8 + i, LEAF_COLORS[i % LEAF_COLORS.length]);
+    }
+    ctx.globalAlpha = 1;
   }
 }
 

@@ -4,7 +4,7 @@ import { drawLoose, sizeOf, type ItemKind } from './item';
 import { Offer } from './offer';
 import type { Perch } from './perch';
 
-export type VehicleKind = 'tractor' | 'wagon' | 'sleigh' | 'postvan' | 'plough';
+export type VehicleKind = 'tractor' | 'wagon' | 'sleigh' | 'postvan' | 'plough' | 'barrow';
 
 interface Wheel {
   dx: number;
@@ -75,6 +75,13 @@ const LOOK: Record<VehicleKind, Look> = {
       { dx: 34, r: 24 },
     ],
     seats: [{ dx: -42, up: 72 }],
+  },
+  // A wooden wheelbarrow: one wheel at the front, handles at the back, room for one in the tray.
+  barrow: {
+    half: 60,
+    height: 70,
+    wheels: [{ dx: 38, r: 16 }],
+    seats: [{ dx: -4, up: 44 }],
   },
 };
 
@@ -185,6 +192,7 @@ export class Vehicle implements Perch {
     else if (this.kind === 'wagon') this.drawWagon(ctx);
     else if (this.kind === 'sleigh') this.drawSleigh(ctx);
     else if (this.kind === 'postvan') this.drawVan(ctx);
+    else if (this.kind === 'barrow') this.drawBarrow(ctx);
     else this.drawPlough(ctx);
     for (const w of this.look.wheels) this.drawWheel(ctx, this.x + w.dx, this.depth - w.r, w.r);
     ctx.restore();
@@ -409,5 +417,40 @@ export class Vehicle implements Perch {
     ctx.moveTo(this.x + 96, g - 46);
     ctx.lineTo(this.x + 140, g - 70);
     ctx.stroke();
+  }
+
+  private drawBarrow(ctx: CanvasRenderingContext2D): void {
+    const g = this.depth;
+    const x = this.x;
+    // Handles back to where hands would hold them, and a leg to rest on.
+    ctx.strokeStyle = '#8d5c4f';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 30, g - 22);
+    ctx.lineTo(x - 58, g - 44);
+    ctx.moveTo(x - 30, g - 34);
+    ctx.lineTo(x - 34, g - 2);
+    ctx.stroke();
+    ctx.fillStyle = '#6b4a3e';
+    ctx.beginPath();
+    ctx.roundRect(x - 64, g - 48, 14, 9, 4);
+    ctx.fill();
+    // The tray: wider at the top, sloping to the wheel.
+    ctx.fillStyle = '#c98c5e';
+    ctx.beginPath();
+    ctx.moveTo(x - 42, g - 52);
+    ctx.lineTo(x + 40, g - 52);
+    ctx.quadraticCurveTo(x + 44, g - 52, x + 40, g - 46);
+    ctx.lineTo(x + 26, g - 26);
+    ctx.lineTo(x - 30, g - 26);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#b77a4f';
+    ctx.beginPath();
+    ctx.roundRect(x - 44, g - 56, 88, 8, 4);
+    ctx.fill();
+    ctx.fillRect(x - 20, g - 46, 4, 18);
+    ctx.fillRect(x + 8, g - 46, 4, 18);
   }
 }

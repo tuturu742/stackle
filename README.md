@@ -7,7 +7,11 @@ pies, a farmhouse, a hen house, a pond with a duck, a swing, a windmill, a hat m
 tractor and rain clouds. The app opens on a row of seasons: swipe to choose one, tap to
 go in. Summer is the farm and winter is a snowy town with a sleigh of gifts, stalls, ice columns
 to colour with candles, a snow plough and a snow cannon for snowmen, sled hills and an ice rink.
-Spring and autumn are still to come. There are no
+Spring is a park at the edge of a little town, with flower gardens, a frog pond, a playground,
+a fountain, an ice-cream cart, a beehive, butterflies, a nest where eggs hatch, a greenhouse, a
+bridge over a stream, a kite and a rainbow after rain; autumn is deep in the woods, with an oak and
+a squirrel, leaf piles, a tent and a campfire for marshmallows, a log cabin, pumpkins to carve, a
+cider press and toadstools that play notes. There are no
 scores, timers, text or fail states.
 
 Play: https://tuturu742.github.io/stackle/

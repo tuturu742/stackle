@@ -42,6 +42,8 @@ export interface Saved {
   windows?: boolean[][];
   /** Which farmhouse doors are open. */
   doors?: boolean[];
+  /** Which Easter eggs are still hidden in each hunt. */
+  eggs?: boolean[][];
 }
 
 /**

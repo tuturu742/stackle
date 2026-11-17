@@ -46,7 +46,7 @@ from it out of committed files: the repo is public.
   Animals and toys (the model ship, instruments, the spinning top) are keepers: never lost, even across layouts. Animals can be moved and
   stacked (in the same towers as fruit) but never disposed of; every item carries a
   `disposable` flag. A drowning tower stops at the first animal, which stands in the water.
-- Animals (cow, hen, sheep, pig, horse, duck, cat, bunny, raccoon, beaver, and in winter penguin,
+- Animals (cow, hen, sheep, pig, horse, duck, cat, dog, bunny, raccoon, beaver, and in winter penguin,
   reindeer, polar bear, fox, seal; some start out wearing a hat) make their sound when
   picked up. Carrying food near an animal's mouth opens it;
   letting go over the open mouth feeds it the held piece only (anything stacked on that piece
@@ -122,8 +122,8 @@ from it out of committed files: the repo is public.
 - Levels: the app opens on a hub (`src/hub.ts`), one full-screen card per season (spring,
   summer, autumn, winter) side by side in a loop (after winter comes spring again). A swipe moves one card, a tap anywhere on a playable card
   goes in, and a card still to come only wiggles. Each card shows a few highlights of its level,
-  drawn with the level's own objects (`src/previews.ts`). Summer is the farm and Winter the snowy
-  town; spring and autumn are placeholder cards until their scenes exist. Leaving a level for the hub resets it: going in
+  drawn with the level's own objects (`src/previews.ts`). Spring is a blossom garden, Summer the
+  farm, Autumn a harvest orchard and Winter the snowy town. Leaving a level for the hub resets it: going in
   again always starts fresh.
 - Every level has a spinning top (`src/objects/top.ts`), an item like any other (carried, stacked,
   stacked on). Dropped or thrown, it lands spinning with its eyes squeezed shut, wobbles as it slows
@@ -171,6 +171,49 @@ from it out of committed files: the repo is public.
     and again while someone rides (only while the hill is on screen); empty, it waits at the top, and a tap on the hill sends it.
   - The ice rink (`Rink`): anything let go on it slides (at least a little), slowing gently and
     bouncing softly off the edge, leaving scratches that fade.
+- Spring and autumn must feel as different from summer as winter does: no farm in either. Each has
+  its own backdrop and back edge (`Theme.land`): spring is a park at the edge of a little town
+  (`meadow.ts`: pastel town roofs, a flowering hedge, a sandy path), autumn is deep in the woods
+  (`woods.ts`: three layers of tall trees, ferns and bracken, a forest floor). Tree crowns stay plain
+  (one colour and a highlight): the parent found textured crowns confusing.
+- Spring (`src/scenes/spring.ts`, `theme: 'spring'`, petals drifting down): nine screens of park:
+  flower gardens, the frog pond, a fountain (tap: a jet), a playground (`park.ts`: a slide anything
+  goes down, a seesaw that tips toward the heavier end, a merry-go-round a tap spins), an ice-cream
+  cart (`Stall` look `icecream`), an Easter egg hunt (`EggHunt`: painted eggs in six designs tucked
+  half out of sight in grass, flowers, leaves or stones; a found one is hidden again only after 8 s
+  and only while its spot is off screen, cap 12 out; they hatch in the nest like eggs; no endless
+  egg basket), a stream with a long bridge
+  (`Bridge`, a perch), the greenhouse (`Greenhouse`, its potting bench a perch), a birdhouse whose
+  babies peep out on a tap, a ribbon pole whose ribbons swirl on a tap.
+  - Cherry and pear trees in blossom (`Tree` `look`). Flower beds grow tulips, daffodils and daisies
+    (`isFlower`: not food, never baked); a bed regrows only its own kind of crop.
+  - A beehive (`Hive`) keeps a jar of honey to take (cap 6); a tap sends its bees out for a lazy loop.
+    Butterflies (`Butterflies`) flutter round a flower being carried; at night they rest.
+  - An egg put in the nest (`Nest`, a perch) rocks and hatches into a chick after 4 s, while fewer than
+    6 chicks are out. Chicks are animals, kept like any other.
+  - Lily pads (`LilyPads`, a perch on the pond) hold anything; the frog starts on one; a tap dips a pad.
+  - The kite (a keeper toy) let go in the air drifts down slowly, swaying, never above the sky's top.
+  - A cloud that rained at least 1.5 s leaves a rainbow (`Rainbow`) behind it in the day.
+  - New animals: frog, chick, lamb; the wheelbarrow is a vehicle.
+- Autumn (`src/scenes/autumn.ts`, `theme: 'autumn'`, leaves drifting down): nine screens of woods,
+  woodland animals only and no crops: a tent (`Tent`; a tap opens or shuts its flap, hiding the fox
+  inside), the campfire (a marshmallow let go anywhere over it, or held over it, toasts; firewood or
+  kindling on it flares, lights it and burns away), a stream with the beaver, a log cabin (`House` style `cabin`) and its
+  woodpile (`Woodpile`, a perch that also gives firewood logs, cap 8) and a chopping block
+  (`ChoppingBlock`: a log on it is split into kindling with three axe chops), a vegetable bed under
+  the rain cloud, a crate of pumpkins (`DecorBox` look `pumpkins`, cap 6) by the
+  carving table, wild apple and pear trees by the cider press, a hollow log (`Decor` `log`, a hiding
+  place: the raccoon), puddles and mud. The dog hides in a leaf pile.
+  - The oak (autumn `Tree`) gives acorns; the squirrel sits under it and the owl in it.
+  - Leaf piles (`Decor` `leafpile`) hide an animal like a bush (the hedgehog and the bunny start in
+    one); a tap puffs leaves up.
+  - Stations (`src/objects/station.ts`) make one thing into another in 2.5 s: the carving table a
+    pumpkin into a jack-o'-lantern, the cider press an apple or pear into juice, the campfire (a tap
+    lights or puts it out) a marshmallow from the bag beside it (cap 8) into a toasted one. The grill
+    still bakes pumpkins into pie.
+  - A jack-o'-lantern is lit; a tap switches it, and lit it glows at night like a candle.
+  - A ring of toadstools (`Mushrooms`) plays a note per toadstool, low to high left to right.
+  - New animals: squirrel, hedgehog.
 - Hidden parent controls: holding a finger still in the top-left corner (140 px) for 3 s leaves
   a level for the hub. In the hub, the same hold (under a parents icon) opens an icon-only panel; a faint ring fills under the finger after the first second. Only lifting or
   moving the finger away stops the hold, since iPadOS may cancel a long touch near the top edge. The panel has: sound, reduce motion (no sway, squash, glide; small splashes; gentler swing
@@ -186,7 +229,8 @@ from it out of committed files: the repo is public.
 - `src/scenes/`: one file per level, defined as data (`SceneDef`); `summer.ts` is the farm
 - `src/objects/`: shared objects (items, fruit, vegetables, hats, animals, stacks, tree, bed,
   goods, cloud, puddle, bin, barn, stable, swing, windmill, hat machine, vehicles, perch, bench, boombox, scarecrow, owl, fireflies, fields,
-  decor, picnic, house, coop, mud; the top; winter: stall, offer, columns, cannon, sledhill, rink, town, throne, market)
+  decor, picnic, house, coop, mud; the top; winter: stall, offer, columns, cannon, sledhill, rink, town, throne, market;
+  spring: nest, lilypads, hive, butterflies, rainbow; autumn: station, mushrooms; falling)
 - `src/theme.ts`: each level's colours and backdrop
 - `src/audio.ts`, `src/fx.ts`: synthesised sounds and splash particles
 - `src/save.ts`: the level being played is saved to localStorage (`Game.snapshot`/`Game.restore`)
@@ -217,6 +261,7 @@ from it out of committed files: the repo is public.
 10. Seasons: a hub to swipe between levels, with the farm as Summer and cards for spring, autumn
     and winter. **Awaiting test.**
 11. Winter: the snowy town level, new animals, the spinning top in every level. **Awaiting test.**
+12. Spring and Autumn: two nine-screen levels, made up without references. **Awaiting test.**
 
 The original roadmap is done. What comes next is decided by watching what he does: new
 scenes (the design document lists a winter scene with a snowball truck), more hidden

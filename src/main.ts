@@ -5,6 +5,8 @@ import { Hub, type Card } from './hub';
 import { AutumnPreview, SpringPreview, SummerPreview, WinterPreview } from './previews';
 import * as save from './save';
 import type { SceneDef } from './scenes/scene';
+import { autumn } from './scenes/autumn';
+import { spring } from './scenes/spring';
 import { summer } from './scenes/summer';
 import { winter } from './scenes/winter';
 import { saveSettings, settings } from './settings';
@@ -12,13 +14,13 @@ import { saveSettings, settings } from './settings';
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
 
-// --- Levels: the seasons, in order. Only those with a scene can be played yet.
+// --- Levels: the seasons, in order.
 
-const SCENES: Record<string, SceneDef> = { summer, winter };
+const SCENES: Record<string, SceneDef> = { spring, summer, autumn, winter };
 const cards: Card[] = [
-  { id: 'spring', preview: new SpringPreview(), playable: false },
+  { id: 'spring', preview: new SpringPreview(), playable: true },
   { id: 'summer', preview: new SummerPreview(), playable: true },
-  { id: 'autumn', preview: new AutumnPreview(), playable: false },
+  { id: 'autumn', preview: new AutumnPreview(), playable: true },
   { id: 'winter', preview: new WinterPreview(), playable: true },
 ];
 

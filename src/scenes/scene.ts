@@ -12,7 +12,8 @@ import type { ThemeName } from '../theme';
 // object should only take a few lines here.
 
 export type ObjectDef =
-  | { type: 'tree'; x: number; fruit: FruitKind }
+  /** A fruit tree; `look` dresses its crown for the season (blossom in spring, warm colours in autumn). */
+  | { type: 'tree'; x: number; fruit: FruitKind; look?: 'summer' | 'blossom' | 'autumn' }
   | { type: 'puddle'; x: number; width: number }
   /** `depth` is the ground line it stands on; larger is nearer the viewer. */
   /** `home`: where it starts out, floating in the puddle (or mud) under it, sitting in the coop or on a farmhouse sill. */
@@ -49,8 +50,8 @@ export type ObjectDef =
   | { type: 'grill'; x: number }
   /** Plays a song per tap, then quiet; the winter one is a radio playing carols. */
   | { type: 'boombox'; x: number; style?: 'summer' | 'winter' }
-  /** The farmhouse, with four windows and a door; `town` dresses it for the winter town. */
-  | { type: 'house'; x: number; style?: 'farm' | 'town' }
+  /** The farmhouse, with four windows and a door; `town` dresses it for the winter town, `cabin` is autumn's log cabin. */
+  | { type: 'house'; x: number; style?: 'farm' | 'town' | 'cabin' }
   | { type: 'coop'; x: number }
   /** A bench for two. */
   | { type: 'bench'; x: number }
@@ -77,10 +78,53 @@ export type ObjectDef =
   | { type: 'market'; x: number }
   /** A box of Christmas decorations to take, on a doorstep. */
   | { type: 'decorbox'; x: number }
+  // Spring.
+  /** A nest on a stump: an egg put in it hatches into a chick. */
+  | { type: 'nest'; x: number }
+  /** Lily pads floating on the puddle at the same x. */
+  | { type: 'lilypads'; x: number }
+  /** A beehive with a jar of honey to take; a tap sends the bees out. */
+  | { type: 'hive'; x: number }
+  /** Butterflies over a meadow; they follow a carried flower. */
+  | { type: 'butterflies'; x: number; width: number }
+  // Autumn.
+  /** Places that make one thing into another: a pumpkin into a jack-o'-lantern, fruit into juice, a marshmallow toasted. */
+  | { type: 'carving' | 'press' | 'campfire'; x: number }
+  /** A ring of toadstools that each play a note. */
+  | { type: 'mushrooms'; x: number; seed: number }
+  /** A pile of leaves; like a bush, a hiding place for one animal. */
+  | { type: 'leafpile'; x: number; seed: number; animal?: AnimalKind }
+  /** A bag of marshmallows to take, for the campfire. */
+  | { type: 'marshmallows'; x: number }
+  /** A hollow fallen log; like a bush, a hiding place for one animal. */
+  | { type: 'log'; x: number; seed: number; animal?: AnimalKind }
+  /** A stack of cut logs under a little roof; things stand on top. */
+  | { type: 'woodpile'; x: number }
+  // More spring.
+  /** A basket of eggs to take, for the nest. */
+  | { type: 'eggs'; x: number }
+  /** A glass greenhouse with a potting bench in front to put things on. */
+  | { type: 'greenhouse'; x: number }
+  /** A little arched footbridge over the stream (a puddle) at the same x. */
+  | { type: 'bridge'; x: number; width: number }
+  /** A birdhouse: a tap makes the baby birds peep out. */
+  | { type: 'birdhouse'; x: number }
+  /** A ribbon pole: a tap swirls its ribbons round. */
+  | { type: 'ribbonpole'; x: number }
+  /** The park's playground: a slide anything goes down, a seesaw, a merry-go-round; and a fountain. */
+  | { type: 'slide' | 'seesaw' | 'carousel' | 'fountain'; x: number }
+  /** A camping tent; its flap opens and shuts on a tap, hiding whoever is inside. */
+  | { type: 'tent'; x: number }
+  /** A chopping block: a log of firewood put on it is split into kindling. */
+  | { type: 'chopblock'; x: number }
+  /** An Easter egg hunt: painted eggs tucked half out of sight in grass, flowers, leaves or stones. */
+  | { type: 'egghunt'; spots: { x: number; depth: number; cover: 'grass' | 'flowers' | 'leaves' | 'stones' }[] }
+  /** A crate of pumpkins to take, for the carving table. */
+  | { type: 'pumpkins'; x: number }
   /** Loose things standing there at the start, like a snowman (they come back, so they are not kept). */
-  | { type: 'stack'; x: number; items: ItemKind[]; depth: number };
+  | { type: 'stack'; x: number; items: ItemKind[]; depth: number; home?: Home };
 
-export type Home = 'pond' | 'coop' | 'house' | 'bush' | 'chair' | 'bench' | 'table';
+export type Home = 'pond' | 'coop' | 'house' | 'bush' | 'chair' | 'bench' | 'table' | 'pads' | 'nest' | 'tent' | 'seesaw';
 // With a `home` of coop or house, `seat` picks the seat (house: windows 0-3, the doorway 4), shut or not.
 
 export interface SceneDef {

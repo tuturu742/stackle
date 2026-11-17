@@ -4,24 +4,53 @@
 // The winter town: sweets, fast food, cocoa and gingerbread from the stalls (food);
 // gifts and parcels to open, ice cubes to build with, candles that colour ice
 // columns, snowballs to make snowmen of, and tree ornaments (things that come back).
-// Toys are kept forever: the model ship, instruments and the spinning top.
+// Spring and autumn: honey from the hive, apple juice from the press, marshmallows
+// to toast, ice creams from the park's cart (food); jack-o'-lanterns carved from pumpkins, painted
+// eggs hidden round the park for an egg hunt, and firewood and the kindling chopped from it (they come back).
+// Toys are kept forever: the model ship, instruments, the spinning top and the kite.
 
 import { TOP, drawTop, newTop } from './top';
+import { drawVeg } from './veg';
 
 export type TreatKind = 'cake' | 'corndog' | 'sandwich' | 'cookie';
 export type SweetKind = 'candycane' | 'lollipop' | 'donut' | 'cupcake';
 export type FastFoodKind = 'hotdog' | 'taco' | 'pretzel' | 'fries';
 export type WarmKind = 'cocoa' | 'coffee' | 'tea' | 'gingerbread' | 'bun';
-export type GoodFoodKind = 'hay' | 'pie' | 'egg' | 'popcorn' | 'flour' | 'tortilla' | TreatKind | SweetKind | FastFoodKind | WarmKind;
+export type IceCreamKind = 'icecreamPink' | 'icecreamChoc' | 'icecreamMint';
+/** Spring and autumn food: honey, apple juice, a marshmallow and the same one toasted, ice creams. */
+export type SeasonFoodKind = 'honey' | 'juice' | 'marshmallow' | 'toasted' | IceCreamKind;
+export type GoodFoodKind =
+  | 'hay'
+  | 'pie'
+  | 'egg'
+  | 'popcorn'
+  | 'flour'
+  | 'tortilla'
+  | TreatKind
+  | SweetKind
+  | FastFoodKind
+  | WarmKind
+  | SeasonFoodKind;
 export type GiftKind = 'gift' | 'giftSmall' | 'giftTall' | 'giftBig';
 export type IceKind = 'icecube' | 'icewindow' | 'icetop';
 export type CandleKind = 'candleRed' | 'candleYellow' | 'candleGreen' | 'candleBlue' | 'candlePink';
 export type SnowballKind = 'snowball1' | 'snowball2' | 'snowball3' | 'snowball4';
 export type OrnamentKind = 'bauble' | 'baubleRed' | 'baubleBlue' | 'baubleGold' | 'baublePurple' | 'bell' | 'star';
-/** Winter things that are not food but come back, like hats: they can go into a bin. */
-export type WinterThingKind = GiftKind | 'parcel' | IceKind | CandleKind | SnowballKind | OrnamentKind;
+export type PaintedEggKind = 'eggStripes' | 'eggDots' | 'eggZigzag' | 'eggHearts' | 'eggStars' | 'eggFlowers';
+/** Things that are not food but come back, like hats (winter's, the jack-o'-lantern, painted eggs, firewood): they can go into a bin. */
+export type WinterThingKind =
+  | GiftKind
+  | 'parcel'
+  | IceKind
+  | CandleKind
+  | SnowballKind
+  | OrnamentKind
+  | 'jackolantern'
+  | PaintedEggKind
+  | 'firewood'
+  | 'kindling';
 export type InstrumentKind = 'drum' | 'guitar' | 'trumpet';
-export type ToyKind = 'ship' | 'top' | InstrumentKind;
+export type ToyKind = 'ship' | 'top' | 'kite' | InstrumentKind;
 export type GoodKind = GoodFoodKind | WinterThingKind | ToyKind;
 
 export const TREATS: TreatKind[] = ['cake', 'corndog', 'sandwich', 'cookie'];
@@ -36,6 +65,9 @@ export const ORNAMENTS: OrnamentKind[] = ['bauble', 'baubleRed', 'baubleBlue', '
 export const CANDLES: CandleKind[] = ['candleRed', 'candleYellow', 'candleGreen', 'candleBlue', 'candlePink'];
 /** Smallest to biggest. */
 export const SNOWBALLS: SnowballKind[] = ['snowball1', 'snowball2', 'snowball3', 'snowball4'];
+export const ICECREAMS: IceCreamKind[] = ['icecreamPink', 'icecreamChoc', 'icecreamMint'];
+/** The egg hunt's painted eggs, each its own colour and pattern. */
+export const PAINTED_EGGS: readonly PaintedEggKind[] = ['eggStripes', 'eggDots', 'eggZigzag', 'eggHearts', 'eggStars', 'eggFlowers'];
 export const INSTRUMENTS: InstrumentKind[] = ['drum', 'guitar', 'trumpet'];
 
 /** Each candle's wax colour; an ice column a candle is put on takes it. */
@@ -78,6 +110,22 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   tea: { radius: 30, height: 32, food: true },
   gingerbread: { radius: 26, height: 52, food: true },
   bun: { radius: 28, height: 24, food: true },
+  honey: { radius: 26, height: 44, food: true },
+  juice: { radius: 16, height: 58, food: true },
+  icecreamPink: { radius: 20, height: 56, food: true },
+  icecreamChoc: { radius: 20, height: 56, food: true },
+  icecreamMint: { radius: 20, height: 56, food: true },
+  marshmallow: { radius: 16, height: 52, food: true },
+  toasted: { radius: 16, height: 52, food: true },
+  jackolantern: { radius: 44, height: 66, food: false },
+  eggStripes: { radius: 18, height: 44, food: false },
+  eggDots: { radius: 18, height: 44, food: false },
+  eggZigzag: { radius: 18, height: 44, food: false },
+  eggHearts: { radius: 18, height: 44, food: false },
+  eggStars: { radius: 18, height: 44, food: false },
+  eggFlowers: { radius: 18, height: 44, food: false },
+  firewood: { radius: 30, height: 30, food: false },
+  kindling: { radius: 26, height: 26, food: false },
   gift: { radius: 32, height: 50, food: false },
   giftSmall: { radius: 24, height: 36, food: false },
   giftTall: { radius: 26, height: 66, food: false },
@@ -104,6 +152,7 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   star: { radius: 28, height: 52, food: false },
   ship: { radius: 48, height: 56, food: false },
   top: { radius: TOP.radius, height: TOP.height, food: false },
+  kite: { radius: 34, height: 70, food: false },
   drum: { radius: 30, height: 36, food: false },
   guitar: { radius: 22, height: 70, food: false },
   trumpet: { radius: 34, height: 26, food: false },
@@ -111,6 +160,11 @@ export const GOODS: Record<GoodKind, GoodLook> = {
 
 export function isGood(kind: string): kind is GoodKind {
   return kind in GOODS;
+}
+
+/** A hen's egg or a painted one: anything the nest can hatch. */
+export function isEgg(kind: string): boolean {
+  return kind === 'egg' || (PAINTED_EGGS as readonly string[]).includes(kind);
 }
 
 export function isCandle(kind: string): kind is CandleKind {
@@ -128,7 +182,7 @@ export function isSnowball(kind: string): kind is SnowballKind {
 
 /** Toys are kept forever, like animals. */
 export function isToy(kind: string): kind is ToyKind {
-  return kind === 'ship' || kind === 'top' || isInstrument(kind);
+  return kind === 'ship' || kind === 'top' || kind === 'kite' || isInstrument(kind);
 }
 
 export function isInstrument(kind: string): kind is InstrumentKind {
@@ -222,7 +276,58 @@ export function drawCandleFlame(
   ctx.restore();
 }
 
+/** A puffy marshmallow on a short stick: white, or toasted golden-brown with a melty drip. */
+function marshmallow(ctx: CanvasRenderingContext2D, body: string, shade: string, melty: boolean): void {
+  lines(ctx, '#b5814f', 4, [[0, 2, 0, 26]]);
+  fill(ctx, shade, () => ctx.roundRect(-15, -24, 30, 28, 11));
+  fill(ctx, body, () => ctx.roundRect(-15, -26, 30, 26, 11));
+  fill(ctx, 'rgba(255, 255, 255, 0.45)', () => ctx.ellipse(-6, -18, 4, 5, -0.4, 0, Math.PI * 2));
+  if (melty) fill(ctx, shade, () => ctx.roundRect(6, -4, 6, 10, 3));
+}
+
 /** The little loop and cap a decoration hangs by. */
+/** The egg outline, 18 wide each side and 22 up and down from the middle. */
+function eggPath(ctx: CanvasRenderingContext2D): void {
+  ctx.moveTo(0, -22);
+  ctx.bezierCurveTo(16, -22, 18, 7, 18, 9);
+  ctx.bezierCurveTo(18, 20, 9, 22, 0, 22);
+  ctx.bezierCurveTo(-9, 22, -18, 20, -18, 9);
+  ctx.bezierCurveTo(-18, 7, -16, -22, 0, -22);
+}
+
+/** A painted egg: a pastel base, its pattern clipped to the shell, and a soft shine. */
+function paintedEgg(ctx: CanvasRenderingContext2D, base: string, paint: string, pattern: (ctx: CanvasRenderingContext2D) => void): void {
+  fill(ctx, base, () => eggPath(ctx));
+  ctx.save();
+  ctx.beginPath();
+  eggPath(ctx);
+  ctx.clip();
+  ctx.fillStyle = paint;
+  ctx.strokeStyle = paint;
+  pattern(ctx);
+  ctx.restore();
+  fill(ctx, 'rgba(255, 255, 255, 0.55)', () => ctx.ellipse(-7, -9, 3.5, 6, -0.35, 0, Math.PI * 2));
+}
+
+function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
+  ctx.beginPath();
+  ctx.moveTo(x, y + s);
+  ctx.bezierCurveTo(x - s * 1.6, y - s * 0.1, x - s * 0.6, y - s * 1.3, x, y - s * 0.35);
+  ctx.bezierCurveTo(x + s * 0.6, y - s * 1.3, x + s * 1.6, y - s * 0.1, x, y + s);
+  ctx.fill();
+}
+
+function star5(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    const d = i % 2 ? r * 0.45 : r;
+    ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
 function hook(ctx: CanvasRenderingContext2D): void {
   ctx.strokeStyle = '#c9a24e';
   ctx.lineWidth = 2.5;
@@ -274,6 +379,30 @@ function bauble(ctx: CanvasRenderingContext2D, color: string, design: 'band' | '
   fill(ctx, 'rgba(255, 255, 255, 0.5)', () => ctx.ellipse(-8, -5, 5, 7, -0.6, 0, Math.PI * 2));
 }
 
+/** The jack-o'-lantern's carved face: two round eyes and a smile. */
+function jackFace(ctx: CanvasRenderingContext2D): () => void {
+  return () => {
+    ctx.ellipse(-12, -3, 6, 7, 0, 0, Math.PI * 2);
+    ctx.moveTo(18, -3);
+    ctx.ellipse(12, -3, 6, 7, 0, 0, Math.PI * 2);
+    ctx.moveTo(-17, 11);
+    ctx.quadraticCurveTo(0, 28, 17, 11);
+    ctx.quadraticCurveTo(0, 18, -17, 11);
+  };
+}
+
+/** The candle's glow inside a lit jack-o'-lantern's face, with the same centre and transform as drawGood. */
+export function drawJackLight(ctx: CanvasRenderingContext2D, x: number, y: number, angle: number, scaleX: number, scaleY: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(0, 1.5);
+  ctx.scale(0.8, 0.8);
+  fill(ctx, '#ffd36b', jackFace(ctx));
+  ctx.restore();
+}
+
 /** A wrapped present: box, lid, ribbon both ways and a bow, in its own size and colours. */
 function present(ctx: CanvasRenderingContext2D, w: number, h: number, box: string, lid: string, ribbon: string, knot: string): void {
   const top = -h / 2 + 10;
@@ -312,6 +441,28 @@ function snowball(ctx: CanvasRenderingContext2D, r: number): void {
   fill(ctx, '#ffffff', () => ctx.arc(0, -r * 0.12, r * 0.86, 0, Math.PI * 2));
   fill(ctx, 'rgba(255, 255, 255, 0.9)', () => ctx.ellipse(-r * 0.35, -r * 0.42, r * 0.18, r * 0.11, -0.6, 0, Math.PI * 2));
   ctx.restore();
+}
+
+/** A waffle cone with two scoops, a paler highlight on each, and a little topping on top. */
+function iceCream(ctx: CanvasRenderingContext2D, scoop: string, light: string, topping: string): void {
+  fill(ctx, '#e5b673', () => {
+    ctx.moveTo(-15, -2);
+    ctx.lineTo(15, -2);
+    ctx.quadraticCurveTo(3, 24, 0, 28);
+    ctx.quadraticCurveTo(-3, 24, -15, -2);
+    ctx.closePath();
+  });
+  lines(ctx, '#c99a5a', 1.5, [
+    [-9, 0, 2, 20],
+    [1, -1, 6, 10],
+    [9, 0, -2, 20],
+    [-1, -1, -6, 10],
+  ]);
+  fill(ctx, scoop, () => ctx.arc(0, -6, 17, 0, Math.PI * 2));
+  fill(ctx, scoop, () => ctx.arc(0, -16, 13, 0, Math.PI * 2));
+  fill(ctx, light, () => ctx.ellipse(-6, -20, 4, 5, -0.5, 0, Math.PI * 2));
+  fill(ctx, light, () => ctx.ellipse(-8, -8, 4, 5, -0.5, 0, Math.PI * 2));
+  fill(ctx, topping, () => ctx.arc(1, -28, 4, 0, Math.PI * 2));
 }
 
 const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
@@ -758,6 +909,114 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
     });
     fill(ctx, '#ffffff', () => ctx.ellipse(-5, -6, 4, 6, -0.3, 0, Math.PI * 2));
   },
+  eggStripes(ctx) {
+    paintedEgg(ctx, '#bfe3f2', '#f6a9c0', (c) => {
+      for (const y of [-10, 2, 14]) c.fillRect(-20, y, 40, 5);
+    });
+  },
+  eggDots(ctx) {
+    paintedEgg(ctx, '#f8d3e0', '#fbfbf7', (c) => {
+      for (const [x, y] of [
+        [-8, -12],
+        [6, -6],
+        [-10, 4],
+        [10, 8],
+        [-2, 14],
+        [2, -18],
+      ]) {
+        c.beginPath();
+        c.arc(x, y, 3.2, 0, Math.PI * 2);
+        c.fill();
+      }
+    });
+  },
+  eggZigzag(ctx) {
+    paintedEgg(ctx, '#fbe7a6', '#86c7a8', (c) => {
+      c.lineWidth = 3.5;
+      c.lineJoin = 'round';
+      for (const y of [-6, 8]) {
+        c.beginPath();
+        for (let i = 0; i <= 8; i++) c.lineTo(-20 + i * 5, y + (i % 2 ? -4 : 4));
+        c.stroke();
+      }
+    });
+  },
+  eggHearts(ctx) {
+    paintedEgg(ctx, '#d8ccf0', '#f08aa6', (c) => {
+      heart(c, -6, -8, 5);
+      heart(c, 7, 4, 5);
+      heart(c, -5, 13, 4);
+    });
+  },
+  eggStars(ctx) {
+    paintedEgg(ctx, '#bfe6c6', '#f6d36a', (c) => {
+      star5(c, -5, -9, 6);
+      star5(c, 8, 4, 5.5);
+      star5(c, -6, 13, 4.5);
+    });
+  },
+  eggFlowers(ctx) {
+    paintedEgg(ctx, '#fbd4b8', '#ffffff', (c) => {
+      for (const [x, y] of [
+        [-4, -8],
+        [7, 9],
+      ]) {
+        for (let k = 0; k < 5; k++) {
+          const a = (k * Math.PI * 2) / 5;
+          c.beginPath();
+          c.arc(x + Math.cos(a) * 4, y + Math.sin(a) * 4, 3, 0, Math.PI * 2);
+          c.fill();
+        }
+        c.fillStyle = '#f2b84b';
+        c.beginPath();
+        c.arc(x, y, 2.5, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = '#ffffff';
+      }
+      c.fillStyle = '#9fd18e';
+      c.fillRect(-20, 16, 40, 4);
+    });
+  },
+  firewood(ctx) {
+    // A short round log on its side: bark along the length, the cut end facing the viewer.
+    fill(ctx, '#8a5f42', () => ctx.roundRect(-30, -15, 50, 30, 10));
+    lines(ctx, '#74503a', 2, [
+      [-24, -7, -2, -7],
+      [-18, 3, 6, 3],
+      [-26, 10, -8, 10],
+    ]);
+    fill(ctx, '#8a5f42', () => ctx.ellipse(18, 0, 12, 15, 0, 0, Math.PI * 2));
+    fill(ctx, '#e2c08f', () => ctx.ellipse(18, 0, 9, 12, 0, 0, Math.PI * 2));
+    ctx.strokeStyle = '#cfa673';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(18, 0, 5.5, 7.5, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    fill(ctx, '#b8875e', () => ctx.arc(18, 0, 1.8, 0, Math.PI * 2));
+  },
+  kindling(ctx) {
+    // Three split wedges standing together, tied round the middle with twine.
+    for (const [x, a, h] of [
+      [-12, -0.12, 24],
+      [12, 0.12, 24],
+      [0, 0, 26],
+    ]) {
+      ctx.save();
+      ctx.translate(x, 0);
+      ctx.rotate(a);
+      fill(ctx, '#8a5f42', () => ctx.roundRect(-8, -h / 2, 16, h, 3));
+      fill(ctx, '#e2c08f', () => {
+        ctx.moveTo(-8, -h / 2 + 2);
+        ctx.lineTo(4, -h / 2 + 2);
+        ctx.lineTo(-2, h / 2 - 2);
+        ctx.lineTo(-8, h / 2 - 2);
+        ctx.closePath();
+      });
+      ctx.restore();
+    }
+    fill(ctx, '#c9a26a', () => ctx.roundRect(-24, -2, 48, 5, 2.5));
+    fill(ctx, '#c9a26a', () => ctx.ellipse(0, 0, 4, 3, 0, 0, Math.PI * 2));
+  },
   cake(ctx) {
     fill(ctx, '#f3c8d4', () => ctx.roundRect(-30, -8, 60, 28, 8));
     fill(ctx, '#fff4ef', () => ctx.roundRect(-30, -14, 60, 12, 6));
@@ -786,6 +1045,99 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
   // A spinning top standing still; a top in play is drawn by its item, spinning or lying down.
   top(ctx) {
     drawTop(ctx, newTop(), 0, 0, 0, 1, 1, true);
+  },
+  honey(ctx) {
+    // A round jar of golden honey, a cloth lid tied with string, a wooden dipper.
+    fill(ctx, '#f2b53d', () => ctx.roundRect(-22, -8, 44, 30, [10, 10, 14, 14]));
+    fill(ctx, '#f7cd6b', () => ctx.roundRect(-16, -4, 10, 20, 5));
+    fill(ctx, '#e8a33a', () => ctx.roundRect(-18, -14, 36, 8, 3));
+    fill(ctx, '#f3e2c4', () => {
+      ctx.moveTo(-24, -12);
+      ctx.quadraticCurveTo(0, -22, 24, -12);
+      ctx.lineTo(20, -2);
+      ctx.quadraticCurveTo(0, 2, -20, -2);
+      ctx.closePath();
+    });
+    lines(ctx, '#c9a77a', 2.5, [[-19, -5, 19, -5]]);
+    lines(ctx, '#b5814f', 4, [[8, -6, 18, -26]]);
+    fill(ctx, '#b5814f', () => ctx.ellipse(19, -27, 5, 4, -1, 0, Math.PI * 2));
+  },
+  juice(ctx) {
+    // A glass bottle of apple juice with a cork and a little apple on the label.
+    fill(ctx, '#d6eef2', () => {
+      ctx.moveTo(-6, -24);
+      ctx.lineTo(6, -24);
+      ctx.lineTo(6, -12);
+      ctx.quadraticCurveTo(15, -8, 15, 2);
+      ctx.lineTo(15, 25);
+      ctx.quadraticCurveTo(15, 29, 11, 29);
+      ctx.lineTo(-11, 29);
+      ctx.quadraticCurveTo(-15, 29, -15, 25);
+      ctx.lineTo(-15, 2);
+      ctx.quadraticCurveTo(-15, -8, -6, -12);
+      ctx.closePath();
+    });
+    fill(ctx, '#f2bf4a', () => ctx.roundRect(-13, -2, 26, 29, [2, 2, 9, 9]));
+    fill(ctx, '#f7efe1', () => ctx.roundRect(-11, 5, 22, 14, 3));
+    fill(ctx, '#ec7a6c', () => ctx.arc(0, 12, 4.5, 0, Math.PI * 2));
+    fill(ctx, '#c08a5c', () => ctx.roundRect(-5, -29, 10, 8, 2));
+    fill(ctx, 'rgba(255, 255, 255, 0.55)', () => ctx.roundRect(-11, -6, 3, 26, 1.5));
+  },
+  icecreamPink: (ctx) => iceCream(ctx, '#f6a9c4', '#fbd0df', '#e8665c'),
+  icecreamChoc: (ctx) => iceCream(ctx, '#a8735a', '#c99478', '#f6a9c4'),
+  icecreamMint: (ctx) => iceCream(ctx, '#a8e0c4', '#cdf0dd', '#7a4a35'),
+  marshmallow: (ctx) => marshmallow(ctx, '#fbf8f2', '#efe8dc', false),
+  toasted: (ctx) => marshmallow(ctx, '#e0a45a', '#c7843f', true),
+  jackolantern(ctx) {
+    drawVeg(ctx, 'pumpkin', 0, 0, 0, 1, 1);
+    // A friendly face; drawJackLight glows inside it while the candle in it is lit.
+    fill(ctx, '#7a4320', jackFace(ctx));
+  },
+  kite(ctx) {
+    // A tail of little bows trailing down, then the diamond in two colours with its cross sticks.
+    lines(ctx, '#8a8f99', 1.5, [
+      [0, 6, -6, 18],
+      [-6, 18, 4, 26],
+      [4, 26, -2, 34],
+    ]);
+    for (const [x, y, color] of [
+      [-6, 18, '#ef8fb4'],
+      [4, 26, '#f2c14e'],
+      [-2, 34, '#6b9fe0'],
+    ] as const) {
+      fill(ctx, color, () => {
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - 6, y - 4);
+        ctx.lineTo(x - 6, y + 4);
+        ctx.closePath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 6, y - 4);
+        ctx.lineTo(x + 6, y + 4);
+        ctx.closePath();
+      });
+    }
+    fill(ctx, '#e8665c', () => {
+      ctx.moveTo(0, -35);
+      ctx.lineTo(30, -12);
+      ctx.lineTo(0, 6);
+      ctx.closePath();
+    });
+    fill(ctx, '#f2c14e', () => {
+      ctx.moveTo(0, -35);
+      ctx.lineTo(-30, -12);
+      ctx.lineTo(0, 6);
+      ctx.closePath();
+    });
+    fill(ctx, 'rgba(255, 255, 255, 0.35)', () => {
+      ctx.moveTo(0, -35);
+      ctx.lineTo(-30, -12);
+      ctx.lineTo(0, -12);
+      ctx.closePath();
+    });
+    lines(ctx, '#b5814f', 2.5, [
+      [0, -34, 0, 5],
+      [-28, -12, 28, -12],
+    ]);
   },
   ship(ctx) {
     // A little sailing boat: hull, mast and two sails.
@@ -852,3 +1204,15 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
     });
   },
 };
+
+/** A lit jack-o'-lantern's warm glow over the dark, centred on its face. */
+export function drawJackGlow(ctx: CanvasRenderingContext2D, x: number, y: number, night: number): void {
+  if (night <= 0) return;
+  const glow = ctx.createRadialGradient(x, y, 4, x, y, 90);
+  glow.addColorStop(0, `rgba(255, 196, 110, ${0.55 * night})`);
+  glow.addColorStop(1, 'rgba(255, 196, 110, 0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, 90, 0, Math.PI * 2);
+  ctx.fill();
+}

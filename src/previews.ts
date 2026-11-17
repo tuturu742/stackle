@@ -1,4 +1,4 @@
-import { GROUND_Y, SCREEN_W, WORLD_H, palette } from './config';
+import { GROUND_Y, WORLD_H, palette } from './config';
 import { drawFence, Decor } from './objects/decor';
 import { IceColumns } from './objects/columns';
 import { CANDLES, CANDLE_COLOR } from './objects/goods';
@@ -11,10 +11,19 @@ import { Puddle } from './objects/puddle';
 import { Scarecrow } from './objects/scarecrow';
 import { Tree } from './objects/tree';
 import { Vehicle } from './objects/vehicle';
+import { LilyPads } from './objects/lilypads';
+import { Nest } from './objects/nest';
+import { Butterflies } from './objects/butterflies';
+import { Rainbow } from './objects/rainbow';
+import { Mushrooms } from './objects/mushrooms';
+import { Campfire } from './objects/station';
+import { drawFalling } from './objects/falling';
+import { drawHedge, drawParkTown, drawPath, drawSpringGround } from './objects/meadow';
+import { drawLeafLitter, drawUndergrowth, drawWoods } from './objects/woods';
+import { settings } from './settings';
 
 // The hub's cards: one full screen per level, showing a few of its highlights,
-// drawn with the level's own objects. A level not made yet gets a card in its
-// season's colours, so the row of seasons is already there.
+// drawn with the level's own objects.
 
 /** A season's colours: sky (top, bottom), far and near hills, ground (top, lower). */
 export interface Colors {
@@ -53,14 +62,24 @@ function drawHills(ctx: CanvasRenderingContext2D, left: number, right: number, c
   }
 }
 
-/** Hills, ground and fence: the backdrop every card shares, in its season's colours. */
-export function drawLand(ctx: CanvasRenderingContext2D, left: number, right: number, c: Colors, fence?: [string, string]): void {
-  drawHills(ctx, left, right, c);
+/** Hills, ground and fence: the backdrop every card shares, in its season's colours. Spring
+ * and autumn have their own: a blossom meadow and hedge, a wood and a stone wall. */
+export function drawLand(ctx: CanvasRenderingContext2D, left: number, right: number, c: Colors, fence?: [string, string], land?: 'park' | 'woods'): void {
+  if (land === 'park') drawParkTown(ctx, left, right, 0);
+  else if (land === 'woods') drawWoods(ctx, left, right, 0);
+  else drawHills(ctx, left, right, c);
   ctx.fillStyle = c.ground;
   ctx.fillRect(left, GROUND_Y, right - left, WORLD_H - GROUND_Y + 10);
   ctx.fillStyle = c.groundDark;
   ctx.fillRect(left, GROUND_Y + 50, right - left, WORLD_H - GROUND_Y);
-  if (fence) drawFence(ctx, left, right, fence[0], fence[1]);
+  if (land === 'park') {
+    drawSpringGround(ctx, left, right);
+    drawPath(ctx, left, right);
+    drawHedge(ctx, left, right);
+  } else if (land === 'woods') {
+    drawLeafLitter(ctx, left, right);
+    drawUndergrowth(ctx, left, right);
+  } else if (fence) drawFence(ctx, left, right, fence[0], fence[1]);
 }
 
 function sun(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string): void {
@@ -102,163 +121,71 @@ export class SummerPreview implements Preview {
   }
 }
 
-/** A round tree in a season's colours, for the cards of levels still to come. */
-function seasonTree(ctx: CanvasRenderingContext2D, x: number, canopy: string, light: string, dots?: string): void {
-  ctx.fillStyle = '#a07a5c';
-  ctx.beginPath();
-  ctx.roundRect(x - 20, GROUND_Y - 230, 40, 240, 16);
-  ctx.fill();
-  const cy = GROUND_Y - 300;
-  ctx.fillStyle = canopy;
-  for (const [dx, dy, r] of [
-    [0, -30, 105],
-    [-85, 20, 80],
-    [85, 20, 80],
-    [-30, 55, 80],
-    [40, 55, 80],
-  ]) {
-    ctx.beginPath();
-    ctx.arc(x + dx, cy + dy, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.fillStyle = light;
-  ctx.beginPath();
-  ctx.arc(x - 35, cy - 55, 45, 0, Math.PI * 2);
-  ctx.fill();
-  if (!dots) return;
-  ctx.fillStyle = dots;
-  for (const [dx, dy] of [
-    [-80, 0],
-    [-20, -70],
-    [50, -20],
-    [90, 40],
-    [-50, 60],
-    [20, 50],
-    [-110, 40],
-    [70, -70],
-  ]) {
-    ctx.beginPath();
-    ctx.arc(x + dx, cy + dy, 9, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-/** A gentle wiggle for a card whose level is still to come. */
-class Wiggle {
-  amount = 0;
-  tap(): void {
-    this.amount = 1;
-  }
-  update(dt: number): void {
-    this.amount = Math.max(0, this.amount - dt * 1.5);
-  }
-  angle(time: number): number {
-    return Math.sin(time * 16) * this.amount * 0.04;
-  }
-}
-
-function around(ctx: CanvasRenderingContext2D, x: number, angle: number, draw: () => void): void {
-  ctx.save();
-  ctx.translate(x, GROUND_Y);
-  ctx.rotate(angle);
-  ctx.translate(-x, -GROUND_Y);
-  draw();
-  ctx.restore();
-}
-
-/** Spring, still to come: a tree in blossom, tulips, and the duck on a pond. */
+/** Spring: a cherry tree in blossom, the frog on a lily pad, a chick in its nest, butterflies, a kite and a rainbow. */
 export class SpringPreview implements Preview {
-  readonly colors: Colors = {
-    skyTop: '#cfe9f7',
-    skyBottom: '#f3f8e8',
-    hillFar: '#d3edbd',
-    hillNear: '#bde5a6',
-    ground: '#9ad67f',
-    groundDark: '#86c46c',
-  };
-  private pond = new Puddle(640, 360);
-  private duck = new Item('duck');
-  private flowers = [120, 380, 860, 960].map((x, i) => new Decor('flowers', x, i + 1));
-  private wiggle = new Wiggle();
-
-  tap(): void {
-    this.wiggle.tap();
-    for (const f of this.flowers) f.tap();
-  }
+  readonly colors: Colors = THEMES.spring;
+  private tree = new Tree(200, 'cherry', 'blossom');
+  private pond = new Puddle(720, 300);
+  private pads = new LilyPads(720, 300, this.pond.surfaceY);
+  private frog = new Item('frog');
+  private nest = new Nest(930);
+  private chick = new Item('chick');
+  private kite = new Item('kite');
+  private butterflies = new Butterflies(420, 520);
+  private rainbow = new Rainbow();
 
   update(dt: number): void {
-    this.wiggle.update(dt);
-    for (const f of this.flowers) f.update(dt);
+    this.rainbow.show(560);
+    this.rainbow.update(dt);
+    this.pads.update(dt);
+    this.butterflies.update(dt, [], 0);
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number, left: number, right: number): void {
     sun(ctx, right - 164, 130, 56, '#fff1b8');
-    drawLand(ctx, left, right, this.colors, ['#e6c9a0', '#d8b88c']);
-    around(ctx, 260, this.wiggle.angle(time), () => seasonTree(ctx, 260, '#f7c6d6', '#fbd9e4', '#f39ab6'));
-    for (const f of this.flowers) f.draw(ctx, time);
+    drawLand(ctx, left, right, this.colors, undefined, 'park');
+    this.rainbow.draw(ctx);
+    this.tree.draw(ctx, time);
     this.pond.draw(ctx, time);
-    const bob = Math.sin(time * 2.2) * 2.5;
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(0, 0, SCREEN_W, this.pond.depth);
-    ctx.clip();
-    this.duck.draw(ctx, 600, this.pond.depth - this.duck.height * 0.4 + bob, 0);
-    ctx.restore();
+    this.pads.draw(ctx);
+    this.frog.draw(ctx, this.pads.seatX(1), this.pads.seatTop(1) - this.frog.height / 2, 0);
+    this.nest.draw(ctx);
+    this.chick.draw(ctx, this.nest.seatX(), this.nest.seatTop() - this.chick.height / 2, 0);
+    this.nest.drawFront(ctx);
+    // The kite drifting high on the breeze.
+    this.kite.draw(ctx, 420 + Math.sin(time * 0.7) * 40, 200 + Math.sin(time * 1.3) * 16, Math.sin(time * 0.9) * 0.2);
+    this.butterflies.draw(ctx);
+    drawFalling(ctx, left, time, 'petals', settings.reduceMotion);
   }
 }
 
-/** Autumn, still to come: an orange tree, piles of leaves, pumpkins and the wagon. */
+/** Autumn: the oak with the squirrel, a leaf pile, pumpkins and a jack-o'-lantern, toadstools and the campfire. */
 export class AutumnPreview implements Preview {
-  readonly colors: Colors = {
-    skyTop: '#f6dcc0',
-    skyBottom: '#fbeedd',
-    hillFar: '#ecd2a8',
-    hillNear: '#e1c08f',
-    ground: '#cdb46e',
-    groundDark: '#bca15d',
-  };
-  private wagon = new Vehicle('wagon', 800);
-  private wiggle = new Wiggle();
-
-  tap(): void {
-    this.wiggle.tap();
-  }
+  readonly colors: Colors = THEMES.autumn;
+  private tree = new Tree(210, 'acorn', 'autumn');
+  private squirrel = new Item('squirrel');
+  private pile = new Decor('leafpile', 420, 1);
+  private pumpkin = new Item('pumpkin');
+  private lantern = new Item('jackolantern');
+  private mushrooms = new Mushrooms(740, 2);
+  private fire = new Campfire(910);
 
   update(dt: number): void {
-    this.wiggle.update(dt);
+    this.pile.update(dt);
+    this.mushrooms.update(dt);
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number, left: number, right: number): void {
     sun(ctx, right - 164, 130, 56, '#ffe0a8');
-    drawLand(ctx, left, right, this.colors, ['#c99f74', '#b88d64']);
-    around(ctx, 280, this.wiggle.angle(time), () => seasonTree(ctx, 280, '#ef8f4c', '#f5a865', '#e0673a'));
-    // Leaf piles.
-    for (const [x, w, color] of [
-      [180, 90, '#e9814a'],
-      [470, 120, '#f2a541'],
-      [1000, 100, '#d9673f'],
-    ] as const) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.ellipse(x, GROUND_Y + 28, w / 2, 26, 0, Math.PI, Math.PI * 2);
-      ctx.fill();
-    }
-    // Pumpkins.
-    for (const [x, r] of [
-      [560, 34],
-      [630, 26],
-    ]) {
-      const y = GROUND_Y + 50 - r;
-      ctx.fillStyle = '#ef8a3c';
-      for (const dx of [-0.45, 0.45, 0]) {
-        ctx.beginPath();
-        ctx.ellipse(x + dx * r, y, r * 0.62, r * 0.85, 0, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = '#7fa35a';
-      ctx.fillRect(x - 3, y - r * 0.85 - 10, 6, 12);
-    }
-    this.wagon.draw(ctx);
+    drawLand(ctx, left, right, this.colors, undefined, 'woods');
+    this.tree.draw(ctx, time);
+    this.pile.draw(ctx, time);
+    this.squirrel.draw(ctx, 330, GROUND_Y + 50 - this.squirrel.height / 2, 0);
+    this.mushrooms.draw(ctx);
+    this.fire.draw(ctx, time);
+    this.pumpkin.draw(ctx, 620, GROUND_Y + 64 - this.pumpkin.height / 2, 0);
+    this.lantern.draw(ctx, 820, GROUND_Y + 80 - this.lantern.height / 2, 0);
+    drawFalling(ctx, left, time, 'leaves', settings.reduceMotion);
   }
 }
 

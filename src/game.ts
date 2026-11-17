@@ -26,7 +26,7 @@ import { Bench } from './objects/bench';
 import { Boombox } from './objects/boombox';
 import { Dispenser } from './objects/dispenser';
 import { CornField, SunflowerField, type Cob } from './objects/fields';
-import { CANDLES, CANDLE_COLOR, CANDLE_FLAME_DY, ORNAMENTS, isCandle, isGift, isInstrument, isSnowball, SNOWBALLS, TREATS, type CandleKind, type InstrumentKind, type ToyKind } from './objects/goods';
+import { CANDLES, CANDLE_COLOR, CANDLE_FLAME_DY, ORNAMENTS, PAINTED_EGGS, isCandle, isEgg, isGift, isInstrument, isSnowball, SNOWBALLS, TREATS, type CandleKind, type InstrumentKind, type ToyKind } from './objects/goods';
 import { House } from './objects/house';
 import { Item, drawLoose, isFruit, isHat, isVeg, sizeOf, type ItemKind, type LooseKind } from './objects/item';
 import type { Perch } from './objects/perch';
@@ -40,7 +40,7 @@ import { Stable } from './objects/stable';
 import { Stack, type Anchor } from './objects/stack';
 import { Swing } from './objects/swing';
 import { Tree, type Slot } from './objects/tree';
-import type { VegKind } from './objects/veg';
+import { isFlower, type VegKind } from './objects/veg';
 import { Vehicle } from './objects/vehicle';
 import { Windmill } from './objects/windmill';
 import { Cannon } from './objects/cannon';
@@ -51,6 +51,20 @@ import { Stall } from './objects/stall';
 import { ChaseLights, Pine, StreetLamp, drawSnowBank, drawTown } from './objects/town';
 import { SantaChair } from './objects/throne';
 import { DecorBox, MarketTable } from './objects/market';
+import { Nest } from './objects/nest';
+import { LilyPads } from './objects/lilypads';
+import { Hive } from './objects/hive';
+import { Butterflies } from './objects/butterflies';
+import { Rainbow } from './objects/rainbow';
+import { Campfire, CarvingTable, CiderPress } from './objects/station';
+import { Mushrooms } from './objects/mushrooms';
+import { drawFalling } from './objects/falling';
+import { Birdhouse, Bridge, Greenhouse, RibbonPole } from './objects/garden';
+import { drawHedge, drawParkTown, drawPath, drawSpringGround } from './objects/meadow';
+import { ChoppingBlock, Woodpile, drawLeafLitter, drawUndergrowth, drawWoods } from './objects/woods';
+import { Carousel, Fountain, Seesaw, Slide } from './objects/park';
+import { Tent } from './objects/tent';
+import { EggHunt } from './objects/egghunt';
 import { THEMES, type Theme } from './theme';
 import type { Saved, SavedStack } from './save';
 import type { Home, SceneDef } from './scenes/scene';
@@ -234,7 +248,41 @@ const PLAY_SECONDS = 2.2;
 function bakesInto(kind: ItemKind): 'pie' | 'popcorn' | 'tortilla' | null {
   if (kind === 'corn') return 'popcorn';
   if (kind === 'flour') return 'tortilla';
-  return isFruit(kind) || isVeg(kind) ? 'pie' : null;
+  return (isFruit(kind) || isVeg(kind)) && !isFlower(kind) ? 'pie' : null;
+}
+
+/** Spring and autumn: an egg in the nest hatches after this long, while there are fewer chicks than the cap. */
+const HATCH_SECONDS = 4;
+const CHICK_CAP = 6;
+const HONEY_CAP = 6;
+const MARSHMALLOW_CAP = 8;
+const PUMPKIN_CAP = 6;
+const FIREWOOD_CAP = 8;
+const PAINTED_EGG_CAP = 12;
+/** Seconds a carving, pressing or toasting takes. */
+const WORK_SECONDS = 2.5;
+/** Chopping a log takes a few swings; wood on the fire burns away in this long. */
+const CHOP_SECONDS = 2.4;
+const BURN_SECONDS = 1.5;
+/** A kite sinks no faster than this, and floats no higher than this. */
+const KITE_SINK = 80;
+const KITE_CEILING = 90;
+/** A cloud that rained at least this long leaves a rainbow behind in spring. */
+const RAINBOW_AFTER = 1.5;
+
+/** Things that light up: candles, and jack-o'-lanterns. A tap switches them; lit, they glow at night. */
+function isLight(kind: ItemKind): boolean {
+  return isCandle(kind) || kind === 'jackolantern';
+}
+
+/** What each station makes of the thing on it: a pumpkin carved, fruit pressed, a log split, a
+ * marshmallow toasted (over a lit fire); wood on the fire burns away (`'burn'`). */
+function worksInto(station: CarvingTable | CiderPress | Campfire | ChoppingBlock, kind: ItemKind): ItemKind | 'burn' | null {
+  if (station instanceof CarvingTable) return kind === 'pumpkin' ? 'jackolantern' : null;
+  if (station instanceof CiderPress) return kind === 'apple' || kind === 'pear' ? 'juice' : null;
+  if (station instanceof ChoppingBlock) return kind === 'firewood' ? 'kindling' : null;
+  if (kind === 'firewood' || kind === 'kindling') return 'burn';
+  return kind === 'marshmallow' && station.lit ? 'toasted' : null;
 }
 
 /** The ice chest's blocks: they build walls and towers side by side. */
@@ -259,9 +307,15 @@ const UMBRELLA_COLORS: Record<AnimalKind, string> = {
   polarbear: '#8cb8e8',
   fox: '#7fb85e',
   seal: '#f2c14e',
+  frog: '#f28b82',
+  chick: '#6b9fe0',
+  lamb: '#f3a3c4',
+  squirrel: '#7fb85e',
+  hedgehog: '#b39ddb',
+  dog: '#6bc0b0',
 };
 /** Bigger animals play lower. */
-const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2, bunny: 1.4, raccoon: 1.1, beaver: 1, penguin: 1.25, reindeer: 0.7, polarbear: 0.6, fox: 1.15, seal: 0.9 };
+const PITCH: Record<AnimalKind, number> = { cow: 0.6, horse: 0.7, pig: 0.85, sheep: 0.9, duck: 1.1, hen: 1.3, cat: 1.2, bunny: 1.4, raccoon: 1.1, beaver: 1, penguin: 1.25, reindeer: 0.7, polarbear: 0.6, fox: 1.15, seal: 0.9, frog: 1.1, chick: 1.6, lamb: 1.2, squirrel: 1.4, hedgehog: 1.3, dog: 1.1 };
 
 export class Game {
   private stacks: Stack[] = [];
@@ -301,6 +355,28 @@ export class Game {
   private chairs: SantaChair[] = [];
   private tables: MarketTable[] = [];
   private boxes: DecorBox[] = [];
+  private nests: Nest[] = [];
+  private pads: LilyPads[] = [];
+  private hives: Hive[] = [];
+  private butterflies: Butterflies[] = [];
+  private stations: (CarvingTable | CiderPress | Campfire | ChoppingBlock)[] = [];
+  /** How long each held marshmallow has been over the fire. */
+  private toasting = new Map<Stack, number>();
+  private eggHunts: EggHunt[] = [];
+  private mushrooms: Mushrooms[] = [];
+  private greenhouses: Greenhouse[] = [];
+  private bridges: Bridge[] = [];
+  private birdhouses: Birdhouse[] = [];
+  private poles: RibbonPole[] = [];
+  private woodpiles: Woodpile[] = [];
+  private slides: Slide[] = [];
+  private seesaws: Seesaw[] = [];
+  private carousels: Carousel[] = [];
+  private fountains: Fountain[] = [];
+  private tents: Tent[] = [];
+  /** Spring's rainbow after rain, and how long each cloud has been raining. */
+  private rainbow = new Rainbow();
+  private rained = new Map<Cloud, number>();
   private readonly theme: Theme;
   /** How far each driven plough or sleigh has gone since its last crunch or jingle. */
   private travelled = new Map<Vehicle, number>();
@@ -357,7 +433,7 @@ export class Game {
     for (const def of scene.objects) {
       switch (def.type) {
         case 'tree':
-          this.trees.push(new Tree(def.x, def.fruit));
+          this.trees.push(new Tree(def.x, def.fruit, def.look));
           break;
         case 'puddle':
           this.puddles.push(new Puddle(def.x, def.width));
@@ -470,8 +546,82 @@ export class Game {
         case 'decorbox':
           this.boxes.push(new DecorBox(def.x));
           break;
+        case 'marshmallows':
+          this.boxes.push(new DecorBox(def.x, 'marshmallows'));
+          break;
+        case 'nest':
+          this.nests.push(new Nest(def.x));
+          break;
+        case 'hive':
+          this.hives.push(new Hive(def.x));
+          break;
+        case 'butterflies':
+          this.butterflies.push(new Butterflies(def.x, def.width));
+          break;
+        case 'carving':
+          this.stations.push(new CarvingTable(def.x));
+          break;
+        case 'press':
+          this.stations.push(new CiderPress(def.x));
+          break;
+        case 'campfire':
+          this.stations.push(new Campfire(def.x));
+          break;
+        case 'mushrooms':
+          this.mushrooms.push(new Mushrooms(def.x, def.seed));
+          break;
+        case 'leafpile':
+        case 'log':
+          this.decor.push(new Decor(def.type, def.x, def.seed));
+          break;
+        case 'eggs':
+          this.boxes.push(new DecorBox(def.x, 'eggs'));
+          break;
+        case 'greenhouse':
+          this.greenhouses.push(new Greenhouse(def.x));
+          break;
+        case 'bridge':
+          this.bridges.push(new Bridge(def.x, def.width));
+          break;
+        case 'birdhouse':
+          this.birdhouses.push(new Birdhouse(def.x));
+          break;
+        case 'ribbonpole':
+          this.poles.push(new RibbonPole(def.x));
+          break;
+        case 'woodpile':
+          this.woodpiles.push(new Woodpile(def.x));
+          break;
+        case 'slide':
+          this.slides.push(new Slide(def.x));
+          break;
+        case 'seesaw':
+          this.seesaws.push(new Seesaw(def.x));
+          break;
+        case 'carousel':
+          this.carousels.push(new Carousel(def.x));
+          break;
+        case 'fountain':
+          this.fountains.push(new Fountain(def.x));
+          break;
+        case 'chopblock':
+          this.stations.push(new ChoppingBlock(def.x));
+          break;
+        case 'egghunt':
+          this.eggHunts.push(new EggHunt(def.spots));
+          break;
+        case 'tent':
+          this.tents.push(new Tent(def.x));
+          break;
+        case 'pumpkins':
+          this.boxes.push(new DecorBox(def.x, 'pumpkins'));
+          break;
+        case 'lilypads':
+          // Placed once the puddle under them exists.
+          break;
         case 'stack':
-          this.standOnGround(def.items, def.x, def.depth);
+          if (def.home) this.placeAtHome(def.items, def.x, def.depth, def.home);
+          else this.standOnGround(def.items, def.x, def.depth);
           break;
         case 'animal':
         case 'toy':
@@ -480,10 +630,15 @@ export class Game {
       }
     }
     for (const def of scene.objects) {
+      if (def.type !== 'lilypads') continue;
+      const pond = this.puddles.find((p) => Math.abs(this.delta(def.x, p.x)) < p.width / 2);
+      if (pond) this.pads.push(new LilyPads(pond.x, pond.width, pond.surfaceY));
+    }
+    for (const def of scene.objects) {
       if (def.type === 'animal') {
         const kinds: ItemKind[] = def.hat ? [def.animal, def.hat] : [def.animal];
         this.keepers.push({ kind: def.animal, spawn: () => this.placeAtHome(kinds, def.x, def.depth, def.home, def.seat) });
-      } else if (def.type === 'bush' && def.animal) {
+      } else if ((def.type === 'bush' || def.type === 'leafpile' || def.type === 'log') && def.animal) {
         const kind = def.animal;
         this.keepers.push({ kind, spawn: () => this.placeAtHome([kind], def.x, GROUND_Y + 40, 'bush') });
       } else if (def.type === 'toy') {
@@ -521,6 +676,10 @@ export class Game {
         chair: this.chairs,
         bench: this.benches,
         table: this.tables,
+        pads: this.pads,
+        nest: this.nests,
+        tent: this.tents,
+        seesaw: this.seesaws,
       };
       const perches = homes[home] ?? this.houses;
       for (const perch of perches) {
@@ -592,11 +751,21 @@ export class Game {
       ...this.pines,
       ...this.chairs,
       ...this.tables,
+      ...this.nests,
+      ...this.pads,
+      ...this.stations,
+      ...this.greenhouses,
+      ...this.bridges,
+      ...this.woodpiles,
+      ...this.slides,
+      ...this.seesaws,
+      ...this.carousels,
+      ...this.tents,
     ];
   }
 
   private get bushes(): Decor[] {
-    return this.decor.filter((d) => d.kind === 'bush');
+    return this.decor.filter((d) => d.kind === 'bush' || d.kind === 'leafpile' || d.kind === 'log');
   }
 
   // --- Saving ------------------------------------------------------------
@@ -640,6 +809,7 @@ export class Game {
       songs: this.boomboxes.map((b) => b.song),
       windows: this.houses.map((h) => [...h.isOpen]),
       doors: this.houses.map((h) => h.doorOpen),
+      eggs: this.eggHunts.map((h) => h.snapshot()),
     };
   }
 
@@ -670,6 +840,7 @@ export class Game {
         const offer = this.vehicles[i]?.offer;
         if (offer) offer.turn = turn;
       });
+      saved.eggs?.forEach((present, i) => this.eggHunts[i]?.restore(present));
       saved.songs?.forEach((song, i) => {
         const b = this.boomboxes[i];
         if (b) b.song = song;
@@ -826,6 +997,21 @@ export class Game {
       const hit = box.offerAt(p.x, p.y, GRAB_SLOP / 2);
       if (hit) offer(hit.dist, () => this.pickFrom(box.take()), box.depth);
     }
+    for (const hive of this.hives) {
+      const hit = hive.offerAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickFrom(hive.take()), hive.depth);
+    }
+    for (const pile of this.woodpiles) {
+      const hit = pile.offerAt(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => this.pickFrom(pile.take()), pile.depth);
+    }
+    for (const hunt of this.eggHunts) {
+      const hit = hunt.at(p.x, p.y, GRAB_SLOP / 2);
+      if (hit) offer(hit.dist, () => {
+        audio.eggPop();
+        return this.pickFrom(hunt.take(hit.spot));
+      }, hunt.spots[hit.spot].depth);
+    }
 
     const cloud = this.clouds.find((c) => c.hits(p.x, p.y, GRAB_SLOP) && !c.raining);
     const door = this.barns.map((barn) => ({ barn, side: barn.doorAt(p.x, p.y, 10) })).find((d) => d.side !== null);
@@ -841,7 +1027,7 @@ export class Game {
       const { stack, index } = best as { stack: Stack; index: number };
       const a = stack.anchor;
       const onSwing = a && 'perch' in a && a.perch instanceof Swing;
-      if (onSwing || isCandle(stack.items[index].kind)) this.riderTouches.set(id, { stack, index, point: p, startX: cssX, startY: cssY });
+      if (onSwing || isLight(stack.items[index].kind)) this.riderTouches.set(id, { stack, index, point: p, startX: cssX, startY: cssY });
       else this.grab(id, index === 0 ? stack : this.split(stack, index), p);
     } else if (door) {
       const side = door.side!;
@@ -952,6 +1138,59 @@ export class Game {
       audio.whoosh();
       return;
     }
+    for (const m of this.mushrooms) {
+      const i = m.tapAt(p.x, p.y, 10);
+      if (i >= 0) return audio.boing(i);
+    }
+    const carousel = this.carousels.find((c) => c.hits(p.x, p.y, 10));
+    if (carousel) {
+      carousel.tap();
+      return audio.whee();
+    }
+    const seesaw = this.seesaws.find((sw) => sw.hits(p.x, p.y, 10));
+    if (seesaw) {
+      seesaw.tap();
+      return audio.swoosh();
+    }
+    const fountain = this.fountains.find((f) => f.hits(p.x, p.y, 10));
+    if (fountain) {
+      fountain.tap();
+      return audio.plop(0.4);
+    }
+    const tent = this.tents.find((tn) => tn.hits(p.x, p.y, 10));
+    if (tent) {
+      audio.shutter();
+      if (tent.toggle()) this.greet(tent, 0);
+      return;
+    }
+    const birdhouse = this.birdhouses.find((b) => b.hits(p.x, p.y, 10));
+    if (birdhouse) {
+      birdhouse.tap();
+      return audio.animal('chick');
+    }
+    const pole = this.poles.find((pl) => pl.hits(p.x, p.y, 10));
+    if (pole) {
+      pole.tap();
+      return audio.swoosh();
+    }
+    const hive = this.hives.find((h) => h.hits(p.x, p.y, 10));
+    if (hive) {
+      if (!hive.out) audio.bees();
+      return hive.tap();
+    }
+    const fire = this.stations.find((st): st is Campfire => st instanceof Campfire && st.hits(p.x, p.y, 10));
+    if (fire) {
+      if (fire.toggle()) audio.crackle();
+      else audio.puff(false);
+      return;
+    }
+    for (const pads of this.pads) {
+      const i = pads.padAt(p.x, p.y, 10);
+      if (i < 0) continue;
+      pads.bob(i);
+      this.puddles.find((pd) => pd.x === pads.x)?.tap(p.x);
+      return audio.plop(0.25);
+    }
     const puddle = this.puddles.find((pd) => pd.holds(p.x, p.y));
     if (puddle) {
       puddle.tap(p.x);
@@ -960,7 +1199,8 @@ export class Game {
     }
     const decor = this.decor.find((d) => d.hits(p.x, p.y, 10));
     if (!decor) return;
-    if (decor.kind !== 'bush') return decor.tap();
+    if (decor.kind !== 'bush' && decor.kind !== 'leafpile' && decor.kind !== 'log') return decor.tap();
+    if (decor.kind !== 'bush') audio.leaves();
     // A few shakes of a bush bring out whatever hides in it.
     const hiding = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === decor);
     if (decor.shake() && hiding) this.comeOut(hiding, decor);
@@ -1108,7 +1348,7 @@ export class Game {
       this.riderTouches.delete(id);
       const a = rider.stack.anchor;
       const item = rider.stack.items[rider.index];
-      if (item && isCandle(item.kind)) {
+      if (item && isLight(item.kind)) {
         item.lit = !item.lit;
         audio.lantern(item.lit);
       } else if (a && 'perch' in a && a.perch instanceof Swing) {
@@ -1717,6 +1957,7 @@ export class Game {
     this.replies = this.replies.filter((r) => this.time < r.at);
     this.layEggs();
     this.bake(dt);
+    this.seasons(dt);
     this.playMusic();
     this.sky.update(dt);
     this.snoreNow();
@@ -1827,6 +2068,148 @@ export class Game {
       grill.baking = 0;
       audio.ding();
     }
+    // A marshmallow held over a lit fire toasts as well, like on a stick.
+    for (const stack of this.stacks) {
+      const fire = stack.state === 'held' && stack.items[0].kind === 'marshmallow'
+        ? this.stations.find((s) => s instanceof Campfire && s.lit && s.over(this.wrap(stack.x), stack.bottom))
+        : undefined;
+      const t = fire ? (this.toasting.get(stack) ?? 0) + dt : 0;
+      if (!fire) {
+        this.toasting.delete(stack);
+        continue;
+      }
+      if (t === dt) audio.sizzle();
+      this.toasting.set(stack, t);
+      if (t < WORK_SECONDS) continue;
+      this.toasting.delete(stack);
+      stack.items[0] = new Item('toasted');
+      stack.items[0].squash = 0.3;
+      audio.ding();
+    }
+  }
+
+  /** Spring and autumn: eggs hatch, honey and marshmallows come back, stations work, butterflies and the rainbow. */
+  private seasons(dt: number): void {
+    for (const nest of this.nests) {
+      const stack = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === nest);
+      const egg = stack?.items[0];
+      const chicks = this.countKinds((k) => k === 'chick');
+      if (!stack || !egg || !isEgg(egg.kind) || chicks >= CHICK_CAP) {
+        nest.warm = 0;
+        continue;
+      }
+      const before = nest.warm;
+      nest.warm = Math.min(1, nest.warm + dt / HATCH_SECONDS);
+      // It rocks a little more and more, then hatches.
+      if (Math.floor(before * 6) !== Math.floor(nest.warm * 6)) egg.squash = 0.12 + nest.warm * 0.12;
+      if (nest.warm < 1) continue;
+      stack.items[0] = new Item('chick');
+      stack.items[0].squash = 0.3;
+      stack.items[0].happy = 1;
+      nest.warm = 0;
+      audio.hatch();
+    }
+    const honey = this.countKinds((k) => k === 'honey');
+    for (const hive of this.hives) if (hive.update(dt, honey < HONEY_CAP)) audio.basket();
+    // A found Easter egg is hidden again, somewhere out of sight, while not too many are out.
+    const painted = this.countKinds((k) => (PAINTED_EGGS as readonly ItemKind[]).includes(k));
+    for (const hunt of this.eggHunts) hunt.update(dt, painted < PAINTED_EGG_CAP, (x) => !this.onScreen(x, 200));
+    const firewood = this.countKinds((k) => k === 'firewood' || k === 'kindling');
+    for (const pile of this.woodpiles) if (pile.offer.update(dt, firewood < FIREWOOD_CAP)) audio.basket();
+    const marshmallows = this.countKinds((k) => k === 'marshmallow' || k === 'toasted');
+    const pumpkins = this.countKinds((k) => k === 'pumpkin' || k === 'jackolantern');
+    for (const box of this.boxes) {
+      if (box.look === 'marshmallows' && box.offer.update(dt, marshmallows < MARSHMALLOW_CAP)) audio.basket();
+      if (box.look === 'eggs' && box.offer.update(dt, this.countOut().eggs < EGG_CAP)) audio.basket();
+      if (box.look === 'pumpkins' && box.offer.update(dt, pumpkins < PUMPKIN_CAP)) audio.basket();
+    }
+    this.work(dt);
+    for (const pads of this.pads) pads.update(dt);
+    for (const b of this.birdhouses) b.update(dt);
+    for (const c of this.carousels) c.update(dt);
+    for (const f of this.fountains) f.update(dt);
+    // The seesaw tips toward whichever end holds more.
+    for (const sw of this.seesaws) {
+      const weight = (seat: number) =>
+        this.stacks
+          .filter((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === sw && st.anchor.seat === seat)
+          .reduce((sum, st) => sum + st.items.reduce((w, it) => w + it.radius * it.height, 0), 0);
+      sw.update(dt, weight(0), weight(1));
+    }
+    // Whatever sits on top of the slide goes down it and is left on the ground at the bottom.
+    for (const slide of this.slides) {
+      const rider = this.stacks.find((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === slide);
+      const before = slide.sliding;
+      const landed = slide.update(dt, !!rider);
+      if (slide.sliding && !before) audio.whee();
+      if (!landed || !rider) continue;
+      rider.anchor = null;
+      rider.state = 'resting';
+      rider.x = this.wrap(slide.landX);
+      rider.bottom = rider.floor = slide.landFloor;
+      rider.vx = 140;
+      rider.items[0].squash = 0.25;
+      for (const item of rider.items) item.wake();
+      slide.reset();
+    }
+    for (const pl of this.poles) pl.update(dt);
+    for (const m of this.mushrooms) m.update(dt);
+    // Butterflies come to a flower being carried.
+    const lures: { x: number; y: number }[] = [];
+    for (const hold of this.holds.values()) {
+      for (const s of hold.stack.shown()) if (isFlower(s.item.kind)) lures.push({ x: s.x, y: s.y });
+    }
+    for (const b of this.butterflies) {
+      b.update(dt, lures.map((l) => ({ x: b.x + this.delta(l.x, b.x), y: l.y })), this.sky.night);
+    }
+    // In spring, a cloud that has rained a while leaves a rainbow when it stops.
+    for (const cloud of this.clouds) {
+      if (cloud.raining) {
+        this.rained.set(cloud, (this.rained.get(cloud) ?? 0) + dt);
+        continue;
+      }
+      const rained = this.rained.get(cloud) ?? 0;
+      this.rained.delete(cloud);
+      if (rained >= RAINBOW_AFTER && this.theme.falling === 'petals' && !this.sky.isNight) {
+        if (!this.rainbow.visible) audio.rainbow();
+        this.rainbow.show(cloud.x);
+      }
+    }
+    this.rainbow.update(dt);
+  }
+
+  /** The carving table, the cider press and the campfire each make the thing on them into another. */
+  private work(dt: number): void {
+    for (const station of this.stations) {
+      const stack = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === station);
+      const made = stack && worksInto(station, stack.items[0].kind);
+      if (!stack || !made) {
+        station.working = 0;
+        continue;
+      }
+      if (station.working === 0) {
+        if (station instanceof CarvingTable) audio.carve();
+        else if (station instanceof CiderPress) audio.press();
+        else if (station instanceof Campfire) made === 'burn' ? audio.flare() : audio.sizzle();
+      }
+      const chops = station instanceof ChoppingBlock ? station.chops : 0;
+      station.working += dt;
+      if (station instanceof ChoppingBlock && station.chops > chops) audio.chop();
+      // Wood on the fire catches at once (lighting it if it was out) and burns away; anything on it drops down.
+      if (made === 'burn' && station instanceof Campfire) {
+        station.lit = true;
+        if (station.working < BURN_SECONDS) continue;
+        stack.items.shift();
+        if (stack.items.length === 0) this.stacks.splice(this.stacks.indexOf(stack), 1);
+        station.working = 0;
+        continue;
+      }
+      if (station.working < (station instanceof ChoppingBlock ? CHOP_SECONDS : WORK_SECONDS)) continue;
+      stack.items[0] = new Item(made as ItemKind);
+      stack.items[0].squash = 0.3;
+      station.working = 0;
+      audio.ding();
+    }
   }
 
   /** Notes float up from every animal playing an instrument. */
@@ -1926,7 +2309,15 @@ export class Game {
   }
 
   private fall(stack: Stack, dt: number): void {
-    stack.vy += GRAVITY * dt;
+    // A kite on its own drifts down slowly on the breeze, swaying, never off the top of the sky.
+    if (stack.items.length === 1 && stack.items[0].kind === 'kite') {
+      stack.vy = Math.min(KITE_SINK, (stack.vy + GRAVITY * 0.08 * dt) * Math.exp(-(stack.vy < 0 ? 1.4 : 0) * dt));
+      stack.vx = stack.vx * Math.exp(-0.8 * dt) + Math.sin(this.time * 1.7 + stack.x * 0.01) * 50 * dt;
+      if (stack.bottom < KITE_CEILING) {
+        stack.bottom = KITE_CEILING;
+        stack.vy = Math.max(stack.vy, 0);
+      }
+    } else stack.vy += GRAVITY * dt;
     stack.x = this.wrap(stack.x + stack.vx * dt);
     // A floater drifts gently toward open water.
     if (stack.floatingIn) stack.x += (stack.floatingIn.floatX(stack.x, stack.radius) - stack.x) * Math.min(1, dt * 6);
@@ -2297,6 +2688,23 @@ export class Game {
       ...this.lamps.map((l) => at(l.depth, l.x, 60, () => l.draw(ctx))),
       ...this.pines.map((pn) => at(pn.depth, pn.x, 140, () => pn.draw(ctx))),
       ...this.chases.map((c) => at(c.depth, c.x, c.width / 2 + 20, () => c.draw(ctx))),
+      ...this.nests.flatMap((n) => [at(n.depth, n.x, 60, () => n.draw(ctx)), at(n.frontDepth, n.x, 60, () => n.drawFront(ctx))]),
+      ...this.pads.map((pd) => at(pd.depth, pd.x, pd.width / 2, () => pd.draw(ctx))),
+      ...this.hives.map((h) => at(h.depth, h.x, 140, () => h.draw(ctx, t))),
+      ...this.stations.map((st) => at(st.depth, st.x, 110, () => st.draw(ctx, t))),
+      ...this.stations.flatMap((st) => (st instanceof ChoppingBlock ? [at(st.frontDepth, st.x, 120, () => st.drawFront(ctx))] : [])),
+      ...this.mushrooms.map((m) => at(m.depth, m.x, 100, () => m.draw(ctx))),
+      ...this.greenhouses.map((g) => at(g.depth, g.x, 170, () => g.draw(ctx))),
+      ...this.bridges.map((b) => at(b.depth, b.x, b.width / 2 + 20, () => b.draw(ctx))),
+      ...this.birdhouses.map((b) => at(b.depth, b.x, 60, () => b.draw(ctx))),
+      ...this.poles.map((pl) => at(pl.depth, pl.x, 120, () => pl.draw(ctx, t))),
+      ...this.woodpiles.map((w) => at(w.depth, w.x + 30, 190, () => w.draw(ctx))),
+      ...this.eggHunts.flatMap((h) => h.spots.map((sp, i) => at(sp.depth, sp.x, 50, () => h.drawSpot(ctx, i, t)))),
+      ...this.slides.map((sl) => at(sl.depth, sl.x, 180, () => sl.draw(ctx))),
+      ...this.seesaws.map((sw) => at(sw.depth, sw.x, 180, () => sw.draw(ctx))),
+      ...this.carousels.flatMap((c) => [at(c.depth, c.x, 180, () => c.draw(ctx, t)), at(c.frontDepth, c.x, 180, () => c.drawFront(ctx))]),
+      ...this.fountains.map((f) => at(f.depth, f.x, 150, () => f.draw(ctx, t))),
+      ...this.tents.flatMap((tn) => [at(tn.depth, tn.x, 170, () => tn.draw(ctx)), at(tn.frontDepth, tn.x, 170, () => tn.drawFront(ctx))]),
       ...this.chairs.flatMap((c) => [at(c.depth, c.x, 160, () => c.draw(ctx)), at(c.frontDepth, c.x, 160, () => c.drawFront(ctx))]),
       ...this.boomboxes.map((b) => at(b.depth, b.x, 80, () => b.draw(ctx))),
       ...this.stacks.map((s) => at(this.depthOf(s), s.x, 200, () => this.drawStack(ctx, s))),
@@ -2334,6 +2742,8 @@ export class Game {
     // Hills (or the snowy town) scroll slower than the ground, so they feel far away.
     const theme = this.theme;
     if (theme.winter) drawTown(ctx, left, right, this.camTravel);
+    else if (theme.land === 'park') drawParkTown(ctx, left, right, this.camTravel);
+    else if (theme.land === 'woods') drawWoods(ctx, left, right, this.camTravel);
     else {
       this.drawHills(ctx, left, right, 0.3, GROUND_Y - 120, 90, 0.004, theme.hillFar);
       this.drawHills(ctx, left, right, 0.6, GROUND_Y - 60, 60, 0.007, theme.hillNear);
@@ -2343,7 +2753,14 @@ export class Game {
     ctx.fillRect(left, GROUND_Y, right - left, WORLD_H - GROUND_Y + 10);
     ctx.fillStyle = theme.groundDark;
     ctx.fillRect(left, GROUND_Y + 50, right - left, WORLD_H - GROUND_Y);
+    if (theme.land === 'park') {
+      drawSpringGround(ctx, left, right);
+      drawPath(ctx, left, right);
+    }
+    if (theme.land === 'woods') drawLeafLitter(ctx, left, right);
     if (theme.winter) drawSnowBank(ctx, left, right);
+    else if (theme.land === 'park') drawHedge(ctx, left, right);
+    else if (theme.land === 'woods') drawUndergrowth(ctx, left, right);
     else drawFence(ctx, left, right);
 
     // Where the view runs past the end of the farm, the start is drawn again after it.
@@ -2354,14 +2771,17 @@ export class Game {
       const seen = (x: number, reach: number) => x + shift + reach > left - margin && x + shift - reach < right + margin;
       ctx.save();
       ctx.translate(shift, 0);
+      if (this.rainbow.visible) this.rainbow.draw(ctx);
       for (const tree of this.trees) if (seen(tree.x, 260)) tree.draw(ctx, this.time);
       for (const layer of layers) if (seen(layer.x, layer.reach)) layer.draw();
+      for (const b of this.butterflies) if (seen(b.x, b.width / 2 + 300)) b.draw(ctx);
       for (const cloud of this.clouds) if (seen(cloud.x, 200)) cloud.draw(ctx);
       this.splashes.draw(ctx);
       this.notes.draw(ctx);
       ctx.restore();
     }
     if (theme.winter) this.drawSnowfall(ctx, left);
+    else if (theme.falling) drawFalling(ctx, left, this.time, theme.falling, settings.reduceMotion);
 
     if (night) {
       this.sky.washLandscape(ctx);
@@ -2388,21 +2808,24 @@ export class Game {
           c.drawGlow(screen, this.sky.night, lit);
         }
         this.drawCandleGlows(screen);
+        for (const st of this.stations) if (st instanceof Campfire) st.drawGlow(screen, this.sky.night);
         screen.restore();
       }
     }
   }
 
-  /** Every lit candle glows at night, wherever it is (unless something stands on it, or it is shut away). */
+  /** Every lit candle and jack-o'-lantern glows at night, wherever it is (a candle not with something on it, nothing shut away). */
   private drawCandleGlows(ctx: CanvasRenderingContext2D): void {
     const night = this.sky.night;
     for (const stack of this.stacks) {
       if (this.hidden(stack)) continue;
       const shown = stack.shown();
       shown.forEach((s, i) => {
-        if (!isCandle(s.item.kind) || !s.item.lit || i < shown.length - 1) return;
+        if (!isLight(s.item.kind) || !s.item.lit) return;
+        const candle = isCandle(s.item.kind);
+        if (candle && i < shown.length - 1) return;
         const x = s.x;
-        const y = s.y + CANDLE_FLAME_DY;
+        const y = candle ? s.y + CANDLE_FLAME_DY : s.y;
         const glow = ctx.createRadialGradient(x, y, 2, x, y, 80);
         glow.addColorStop(0, `rgba(255, 214, 140, ${0.6 * night})`);
         glow.addColorStop(1, 'rgba(255, 214, 140, 0)');

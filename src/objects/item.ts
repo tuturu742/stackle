@@ -1,10 +1,10 @@
 import * as audio from '../audio';
 import { ANIMAL, drawAnimal, type AnimalKind } from './animals';
 import { FRUIT, drawFruit, type FruitKind } from './fruit';
-import { GOODS, drawCandleFlame, drawGood, isCandle, isGood, isSnowball, isToy, type GoodFoodKind, type GoodKind, type ToyKind, type WinterThingKind } from './goods';
+import { GOODS, drawCandleFlame, drawJackLight, drawGood, isCandle, isGood, isSnowball, isToy, type GoodFoodKind, type GoodKind, type ToyKind, type WinterThingKind } from './goods';
 import { drawTop, newTop, startSpin, stopTop, updateTop, SPIN_SECONDS, type TopState } from './top';
 import { HAT, drawHat, type HatKind } from './hat';
-import { VEG, drawVeg, type VegKind } from './veg';
+import { VEG, drawVeg, isFlower, type VegKind } from './veg';
 import { settings } from '../settings';
 
 /** Food: fruit, vegetables, hay, treats, pies and eggs. */
@@ -21,7 +21,7 @@ export function isFruit(kind: ItemKind): kind is FruitKind {
 }
 
 export function isFood(kind: ItemKind): kind is FoodKind {
-  return kind in FRUIT || kind in VEG || (isGood(kind) && GOODS[kind].food);
+  return kind in FRUIT || (kind in VEG && !isFlower(kind)) || (isGood(kind) && GOODS[kind].food);
 }
 
 export function isVeg(kind: ItemKind): kind is VegKind {
@@ -232,6 +232,7 @@ export class Item {
     else {
       drawLoose(ctx, this.kind as LooseKind | ToyKind, x, y, angle, sx, sy);
       if (isCandle(this.kind) && !this.covered) drawCandleFlame(ctx, x, y, angle, sx, sy, this.lit, performance.now() / 1000);
+      if (this.kind === 'jackolantern' && this.lit) drawJackLight(ctx, x, y, angle, sx, sy);
       if (this.snowman) drawSnowman(ctx, this.snowman, x, y, angle, this.radius);
     }
   }

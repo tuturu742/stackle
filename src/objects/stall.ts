@@ -1,14 +1,16 @@
 import { GROUND_Y } from '../config';
-import { CANDLES, FASTFOOD, ICE_BLOCKS, ORNAMENTS, SWEETS, WARM, drawCandleFlame, isCandle } from './goods';
+import { CANDLES, FASTFOOD, ICECREAMS, ICE_BLOCKS, ORNAMENTS, SWEETS, WARM, drawCandleFlame, isCandle } from './goods';
 import { WINTER_HATS } from './hat';
 import { drawLoose, sizeOf, type ItemKind, type LooseKind } from './item';
 
 // Winter stalls that each give one kind of thing, like the picnic basket: the
 // next one sits ready on the counter (or in the chest's opening); take it and
 // another, picked at random, rises up from behind the counter, while not too
-// many are out. Each stall's string lights switch on or off with a tap.
+// many are out. Each stall's string lights switch on or off with a tap. The
+// autumn harvest cart works the same way, with fruit and vegetables, and so
+// does the spring park's ice-cream cart.
 
-export type StallLook = 'icechest' | 'candles' | 'sweets' | 'cocoa' | 'hats' | 'food' | 'ornaments';
+export type StallLook = 'icechest' | 'candles' | 'sweets' | 'cocoa' | 'hats' | 'food' | 'ornaments' | 'harvest' | 'icecream';
 
 /** Seconds for the next thing to rise into place. */
 const RISE_SECONDS = 0.45;
@@ -31,6 +33,8 @@ const SHAPE: Record<StallLook, Shape> = {
   hats: { half: 130, height: 340, spotDx: 0, spotUp: 118 },
   food: { half: 140, height: 310, spotDx: 30, spotUp: 120 },
   ornaments: { half: 120, height: 360, spotDx: 0, spotUp: 116 },
+  harvest: { half: 140, height: 320, spotDx: 0, spotUp: 112 },
+  icecream: { half: 120, height: 300, spotDx: -20, spotUp: 122 },
 };
 
 const KINDS: Record<StallLook, readonly ItemKind[]> = {
@@ -41,6 +45,8 @@ const KINDS: Record<StallLook, readonly ItemKind[]> = {
   hats: WINTER_HATS,
   food: FASTFOOD,
   ornaments: ORNAMENTS,
+  harvest: ['apple', 'pear', 'corn', 'carrot', 'pumpkin', 'cabbage'],
+  icecream: ICECREAMS,
 };
 
 /** The ice chest gives mostly plain cubes; the rest are blocks with windows and tower tops. */
@@ -225,6 +231,10 @@ export class Stall {
         return swag(x - 124, g - 244, x + 124, g - 244, 12, 9);
       case 'ornaments':
         return [...swag(x - 110, g - 222, x, g - 262, 10, 4), ...swag(x, g - 262, x + 110, g - 222, 10, 4)];
+      case 'harvest':
+        return swag(x - 112, g - 228, x + 112, g - 228, 14, 8);
+      case 'icecream':
+        return swag(x - 104, g - 226, x + 96, g - 226, 12, 7);
     }
   }
 }
@@ -540,6 +550,43 @@ const BACK: Record<StallLook, Draw> = {
     ctx.arc(x, by - 56, 7, Math.PI, 0);
     ctx.stroke();
   },
+  icecream: (ctx, x, g) => {
+    // A striped parasol on a pole over the cart.
+    box(ctx, x + 56, g - 250, 8, 140, 4, '#c9cfd8');
+    ctx.fillStyle = '#f6a9c4';
+    ctx.beginPath();
+    ctx.moveTo(x - 116, g - 226);
+    ctx.quadraticCurveTo(x - 4, g - 300, x + 116, g - 226);
+    ctx.closePath();
+    ctx.fill();
+    awning(ctx, x - 116, x + 116, g - 236, 10, '#f6a9c4', '#fff6f8', 7);
+    dot(ctx, x + 2, g - 262, 7, '#f2c14e');
+    // Two big cones painted on a sign behind the counter.
+    box(ctx, x + 14, g - 176, 70, 54, 10, '#fff6f8');
+    for (const [dx, kind] of [
+      [34, 'icecreamMint'],
+      [64, 'icecreamPink'],
+    ] as const) {
+      drawLoose(ctx, kind, x + dx, g - 150, 0, 0.75, 0.75);
+    }
+  },
+  harvest: (ctx, x, g) => {
+    // Two poles hold up a striped canopy over the cart; crates of produce are stacked behind its bed.
+    for (const dx of [-112, 104]) box(ctx, x + dx, g - 250, 10, 150, 4, '#8d5c4f');
+    box(ctx, x - 120, g - 262, 240, 18, 8, '#d9603b');
+    awning(ctx, x - 124, x + 124, g - 246, 24, '#e8873a', '#f7efe1', 8);
+    for (const [dx, up, kind] of [
+      [-78, 112, 'apple'],
+      [78, 112, 'pear'],
+      [-78, 160, 'carrot'],
+      [78, 160, 'corn'],
+    ] as const) {
+      box(ctx, x + dx - 36, g - up - 44, 72, 44, 6, '#c99f74');
+      for (const k of [-18, 0, 18]) drawLoose(ctx, kind, x + dx + k, g - up - 46, k * 0.02, 0.6, 0.6);
+      box(ctx, x + dx - 36, g - up - 26, 72, 26, 6, '#b8875e');
+      box(ctx, x + dx - 30, g - up - 18, 60, 4, 2, '#a7724c');
+    }
+  },
 };
 
 const FRONT: Record<StallLook, Draw> = {
@@ -615,7 +662,61 @@ const FRONT: Record<StallLook, Draw> = {
     }
     drift(ctx, x - 30, g + 4, 110);
   },
+  icecream: (ctx, x, g) => {
+    // A mint cart with a cream lid, a pink stripe, a push handle and two wheels.
+    box(ctx, x - 104, g - 118, 200, 80, 14, '#a8e0c4');
+    box(ctx, x - 110, g - 124, 212, 14, 7, '#fff6f8');
+    box(ctx, x - 104, g - 84, 200, 10, 0, '#f6a9c4');
+    // Two round lids over the tubs.
+    for (const dx of [-60, 30]) {
+      ctx.fillStyle = '#e9f6ef';
+      ctx.beginPath();
+      ctx.ellipse(x + dx, g - 124, 26, 6, 0, Math.PI, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#c9cfd8';
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 96, g - 100);
+    ctx.lineTo(x + 126, g - 128);
+    ctx.stroke();
+    for (const dx of [-70, 62]) {
+      dot(ctx, x + dx, g - 30, 28, '#8a8f99');
+      dot(ctx, x + dx, g - 30, 18, '#f2c14e');
+      dot(ctx, x + dx, g - 30, 6, '#8a8f99');
+    }
+  },
+  harvest: (ctx, x, g) => {
+    // The cart's bed of planks, a pumpkin and a basket of apples leaning on it, and two big wheels.
+    box(ctx, x - 124, g - 114, 248, 64, 8, '#b8875e');
+    box(ctx, x - 132, g - 120, 264, 14, 7, '#a7724c');
+    ctx.fillStyle = '#a7724c';
+    for (const y of [g - 92, g - 72]) ctx.fillRect(x - 118, y, 236, 3);
+    box(ctx, x + 124, g - 96, 40, 8, 4, '#8d5c4f');
+    for (const dx of [-84, 84]) wheel(ctx, x + dx, g - 34, 34);
+    drawLoose(ctx, 'pumpkin', x - 150, g - 22, 0, 0.55, 0.55);
+    box(ctx, x + 132, g - 34, 40, 34, 8, '#c9a074');
+    for (const k of [-10, 6]) drawLoose(ctx, 'apple', x + 152 + k, g - 38, 0, 0.5, 0.5);
+    box(ctx, x + 132, g - 22, 40, 22, 8, '#b8875e');
+  },
 };
+
+/** A big wooden cart wheel with spokes, its hub at (x, y). */
+function wheel(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  dot(ctx, x, y, r, '#7a523a');
+  dot(ctx, x, y, r - 6, '#d9b48a');
+  ctx.strokeStyle = '#7a523a';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 4;
+    ctx.moveTo(x - Math.cos(a) * (r - 6), y - Math.sin(a) * (r - 6));
+    ctx.lineTo(x + Math.cos(a) * (r - 6), y + Math.sin(a) * (r - 6));
+  }
+  ctx.stroke();
+  dot(ctx, x, y, 7, '#7a523a');
+}
 
 function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
   ctx.beginPath();

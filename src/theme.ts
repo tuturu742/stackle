@@ -10,6 +10,12 @@ export interface Theme {
   groundDark: string;
   /** Winter: a snowy town behind instead of hills and a fence, and snow falling softly. */
   winter: boolean;
+  /** Spring's blossom petals or autumn's leaves drifting down. */
+  falling?: 'petals' | 'leaves';
+  /** What stands behind the ground and along its back edge: summer's hills and fence, spring's
+   * little town across the park behind a flowering hedge, autumn's forest and its undergrowth
+   * (winter has its town and snow bank). */
+  land?: 'park' | 'woods';
 }
 
 export const THEMES = {
@@ -21,6 +27,28 @@ export const THEMES = {
     ground: palette.ground,
     groundDark: palette.groundDark,
     winter: false,
+  },
+  spring: {
+    skyTop: '#cfe9f7',
+    skyBottom: '#f3f8e8',
+    hillFar: '#d3edbd',
+    hillNear: '#bde5a6',
+    ground: '#9ad67f',
+    groundDark: '#86c46c',
+    winter: false,
+    falling: 'petals',
+    land: 'park',
+  },
+  autumn: {
+    skyTop: '#f6dcc0',
+    skyBottom: '#fbeedd',
+    hillFar: '#ecd2a8',
+    hillNear: '#e1c08f',
+    ground: '#cdb46e',
+    groundDark: '#bca15d',
+    winter: false,
+    falling: 'leaves',
+    land: 'woods',
   },
   winter: {
     skyTop: '#a9c8ea',

@@ -26,12 +26,23 @@ const SLOT_OFFSETS = [
   [110, -225],
 ];
 
+/** A tree's season: summer green, spring blossom (the cherry), or autumn's warm colours (the oak). */
+export type TreeLook = 'summer' | 'blossom' | 'autumn';
+
+/** The crown: a plain base colour and one lighter highlight, like the summer tree; no dots or patches. */
+const CROWNS: Record<TreeLook, { base: string; light: string }> = {
+  summer: { base: palette.canopy, light: palette.canopyLight },
+  blossom: { base: '#f4bfd0', light: '#f9d8e3' },
+  autumn: { base: '#e39a45', light: '#f0b766' },
+};
+
 export class Tree {
   readonly slots: Slot[];
 
   constructor(
     readonly x: number,
     readonly fruit: FruitKind,
+    readonly look: TreeLook = 'summer',
   ) {
     this.slots = SLOT_OFFSETS.map(([dx, dy]) => ({
       x: x + dx,
@@ -99,7 +110,8 @@ export class Tree {
     ctx.fill();
 
     const cy = GROUND_Y - 320;
-    ctx.fillStyle = palette.canopy;
+    const crown = CROWNS[this.look];
+    ctx.fillStyle = crown.base;
     for (const [dx, dy, r] of [
       [0, -40, 120],
       [-100, 20, 95],
@@ -111,11 +123,10 @@ export class Tree {
       ctx.arc(this.x + dx, cy + dy, r, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.fillStyle = palette.canopyLight;
+    ctx.fillStyle = crown.light;
     ctx.beginPath();
     ctx.arc(this.x - 40, cy - 70, 55, 0, Math.PI * 2);
     ctx.fill();
-
     for (const slot of this.slots) {
       if (slot.growth <= 0.02) continue;
       const g = this.scaleOf(slot);
