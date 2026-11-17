@@ -118,12 +118,12 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   marshmallow: { radius: 16, height: 52, food: true },
   toasted: { radius: 16, height: 52, food: true },
   jackolantern: { radius: 44, height: 66, food: false },
-  eggStripes: { radius: 18, height: 44, food: false },
-  eggDots: { radius: 18, height: 44, food: false },
-  eggZigzag: { radius: 18, height: 44, food: false },
-  eggHearts: { radius: 18, height: 44, food: false },
-  eggStars: { radius: 18, height: 44, food: false },
-  eggFlowers: { radius: 18, height: 44, food: false },
+  eggStripes: { radius: 29, height: 70, food: false },
+  eggDots: { radius: 29, height: 70, food: false },
+  eggZigzag: { radius: 29, height: 70, food: false },
+  eggHearts: { radius: 29, height: 70, food: false },
+  eggStars: { radius: 29, height: 70, food: false },
+  eggFlowers: { radius: 29, height: 70, food: false },
   firewood: { radius: 30, height: 30, food: false },
   kindling: { radius: 26, height: 26, food: false },
   gift: { radius: 32, height: 50, food: false },
@@ -296,7 +296,12 @@ function eggPath(ctx: CanvasRenderingContext2D): void {
 }
 
 /** A painted egg: a pastel base, its pattern clipped to the shell, and a soft shine. */
+/** Painted Easter eggs are drawn bigger than a plain egg, so they are easy to spot in the park. */
+const PAINTED_EGG_SCALE = 1.6;
+
 function paintedEgg(ctx: CanvasRenderingContext2D, base: string, paint: string, pattern: (ctx: CanvasRenderingContext2D) => void): void {
+  ctx.save();
+  ctx.scale(PAINTED_EGG_SCALE, PAINTED_EGG_SCALE);
   fill(ctx, base, () => eggPath(ctx));
   ctx.save();
   ctx.beginPath();
@@ -307,6 +312,7 @@ function paintedEgg(ctx: CanvasRenderingContext2D, base: string, paint: string, 
   pattern(ctx);
   ctx.restore();
   fill(ctx, 'rgba(255, 255, 255, 0.55)', () => ctx.ellipse(-7, -9, 3.5, 6, -0.35, 0, Math.PI * 2));
+  ctx.restore();
 }
 
 function heart(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {

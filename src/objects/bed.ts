@@ -12,7 +12,7 @@ export interface Plot {
 }
 
 /** Seconds of rain a picked plot needs to grow back. Nothing grows without rain. */
-const GROW_SECONDS = 4;
+const GROW_SECONDS = 2.4;
 const RIPE_POP_SECONDS = 0.3;
 /** How much of a vegetable shows above the soil: a peek while growing, half once ripe. */
 const GROWING_SHOWS = 0.12;
