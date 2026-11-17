@@ -26,9 +26,6 @@ export const GRAVITY = 1800;
 export const PLACE_SPEED = 400;
 export const MAX_RELEASE_SPEED = 600;
 
-/** Towers can grow only this close to the top of the screen. */
-export const TOP_MARGIN = 8;
-
 export const REGROW_SECONDS = 3;
 
 export const palette = {

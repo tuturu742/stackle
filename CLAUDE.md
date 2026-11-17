@@ -36,8 +36,9 @@ from it out of committed files: the repo is public.
 - Towers never tumble; sway while carried is drawn only (a damped spring), so the connection
   never breaks. Grabbing the bottom item lifts the whole tower; grabbing a higher item splits
   it, taking that item and everything above. Picking a tree fruit or bed vegetable takes the tower on it too.
-- Stack limit: a tower stops at the top of the screen; whatever does not fit breaks off and
-  falls beside it as a new stack.
+- No stack limit: a tower grows past the top of the screen, out of view (the child asked; the
+  view never zooms). A stack let go gently on top of a stack another finger is holding glues on,
+  and the other finger then carries the whole tower.
 - The tree does nothing when touched; it only gives fruit. (The owl in the pear tree is its own
   thing: asleep by day, a tap only makes it peek with one eye; awake at night with glowing eyes,
   a tap makes it hoot.)

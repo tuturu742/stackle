@@ -9,7 +9,6 @@ import {
   PLACE_SPEED,
   SCREEN_W,
   STEP,
-  TOP_MARGIN,
   WORLD_H,
   palette,
 } from './config';
@@ -1624,7 +1623,8 @@ export class Game {
     let best: Stack | null = null;
     let bestDist = Infinity;
     for (const other of this.stacks) {
-      if (other === stack || (other.state !== 'resting' && other.state !== 'anchored') || other.drowningIn) continue;
+      // Another finger's stack counts too: one stack let go onto the one held in the other hand.
+      if (other === stack || other.state === 'falling' || other.drowningIn) continue;
       if (this.hidden(other)) continue;
       const top = other.items[other.items.length - 1];
       const dx = Math.abs(this.delta(stack.x, other.x));
@@ -1732,7 +1732,6 @@ export class Game {
     this.removeStack(upper);
     audio.plop(0.4);
     this.openGifts(lower);
-    this.limitHeight(lower);
     this.playIfGiven(lower);
   }
 
@@ -1746,7 +1745,6 @@ export class Game {
     audio.plop(0.4);
     this.openGifts(stack);
     this.lightColumn(stack);
-    this.limitHeight(stack);
     this.playIfGiven(stack);
     this.chat(stack);
   }
@@ -1825,22 +1823,6 @@ export class Game {
       animal.wake();
       audio.music(instrument.kind as InstrumentKind, PITCH[animal.animal]);
     }
-  }
-
-  /** A tower stops at the top of the screen; what does not fit falls off beside it. */
-  private limitHeight(stack: Stack): void {
-    const top = this.camY + TOP_MARGIN;
-    let keep = 1;
-    while (keep < stack.items.length && stack.bottomOf(keep + 1) >= top) keep++;
-    if (keep >= stack.items.length) return;
-
-    const bottom = stack.bottomOf(keep);
-    const excess = stack.items.splice(keep);
-    const towardMiddle = this.delta(stack.x, this.camX + this.viewW / 2) < 0 ? 1 : -1;
-    const fallen = new Stack(excess, this.wrap(stack.x + towardMiddle * (stack.radius + excess[0].radius) * 1.1), bottom);
-    fallen.continueFrom(stack);
-    fallen.nudge(towardMiddle * 1.5);
-    this.stacks.push(fallen);
   }
 
   private removeStack(stack: Stack): void {
@@ -2367,7 +2349,6 @@ export class Game {
     }
     // A spinning top lands spinning.
     if (stack.items.length === 1 && !stack.drowningIn && !stack.floatingIn) stack.items[0].spin();
-    this.limitHeight(stack);
     if (!stack.drowningIn) this.playIfGiven(stack);
     this.chat(stack);
   }
