@@ -3,6 +3,7 @@ import { settings } from '../settings';
 import { drawGood, GOODS, TREATS, type TreatKind } from './goods';
 import { isFruit, isVeg, type Item } from './item';
 import { drawLantern, drawLanternGlow, LANTERN_R } from './lantern';
+import type { Offered } from './offer';
 import type { Perch } from './perch';
 
 const LANTERN_COLORS = ['#f28b82', '#f6c26b', '#81c7e8', '#a5d68f', '#b39ddb'];
@@ -179,6 +180,12 @@ export class Basket {
     const kind = TREATS[this.next];
     const dist = Math.hypot(px - this.x, py - this.treatY(kind, 1));
     return dist <= GOODS[kind].radius + slop ? { dist } : null;
+  }
+
+  offered(): Offered | null {
+    if (this.up < 1) return null;
+    const kind = TREATS[this.next];
+    return { kind, x: this.x, bottom: this.treatY(kind, 1) + GOODS[kind].height / 2 };
   }
 
   /** Take the treat on top; the next one starts rising. */

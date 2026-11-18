@@ -1,3 +1,4 @@
+import type { BoomboxStyle } from '../objects/boombox';
 import type { AnimalKind } from '../objects/animals';
 import type { FruitKind } from '../objects/fruit';
 import type { ToyKind } from '../objects/goods';
@@ -48,8 +49,8 @@ export type ObjectDef =
   | { type: 'picnic'; x: number; width: number }
   | { type: 'basket'; x: number }
   | { type: 'grill'; x: number }
-  /** Plays a song per tap, then quiet; the winter one is a radio playing carols. */
-  | { type: 'boombox'; x: number; style?: 'summer' | 'winter' }
+  /** Plays a song per tap, then quiet: the winter radio plays carols, spring has a music box, autumn a gramophone. */
+  | { type: 'boombox'; x: number; style?: BoomboxStyle }
   /** The farmhouse, with four windows and a door; `town` dresses it for the winter town, `cabin` is autumn's log cabin. */
   | { type: 'house'; x: number; style?: 'farm' | 'town' | 'cabin' }
   | { type: 'coop'; x: number }

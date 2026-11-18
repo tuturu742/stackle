@@ -36,6 +36,7 @@ import { Owl } from './objects/owl';
 import { Scarecrow } from './objects/scarecrow';
 import type { Sink } from './objects/sink';
 import { Stable } from './objects/stable';
+import { OfferSeat } from './objects/offerseat';
 import { Stack, type Anchor } from './objects/stack';
 import { Swing } from './objects/swing';
 import { Tree, type Slot } from './objects/tree';
@@ -368,6 +369,8 @@ export class Game {
   private birdhouses: Birdhouse[] = [];
   private poles: RibbonPole[] = [];
   private woodpiles: Woodpile[] = [];
+  /** What every giver has waiting, as a seat to stack on. */
+  private offerSeats: OfferSeat[] = [];
   private slides: Slide[] = [];
   private seesaws: Seesaw[] = [];
   private carousels: Carousel[] = [];
@@ -644,6 +647,15 @@ export class Game {
         this.keepers.push({ kind: def.toy, spawn: () => this.placeAtHome([def.toy], def.x, def.depth, def.home, def.seat) });
       }
     }
+    for (const giver of [...this.stalls, ...this.boxes, ...this.hives, ...this.woodpiles, ...this.baskets]) {
+      this.offerSeats.push(new OfferSeat(giver, () => giver.offered(), () => giver.depth));
+    }
+    for (const vehicle of this.vehicles) {
+      if (vehicle.offer) this.offerSeats.push(new OfferSeat(vehicle, () => vehicle.offered(), () => vehicle.depth));
+    }
+    for (const hunt of this.eggHunts) {
+      hunt.spots.forEach((spot, i) => this.offerSeats.push(new OfferSeat(spot, () => hunt.offered(i), () => spot.depth)));
+    }
     for (const keeper of this.keepers) keeper.spawn();
     this.setCamera(scene.start ?? 0);
   }
@@ -760,6 +772,7 @@ export class Game {
       ...this.seesaws,
       ...this.carousels,
       ...this.tents,
+      ...this.offerSeats,
     ];
   }
 
@@ -946,8 +959,10 @@ export class Game {
     let best: { stack: Stack; index: number } | null = null;
     let bestDist = Infinity;
     for (const stack of this.stacks) {
-      if (stack.state === 'held' || this.hidden(stack) || behind(this.depthOf(stack))) continue;
+      if (this.hidden(stack) || behind(this.depthOf(stack))) continue;
       stack.shown().forEach((shown, index) => {
+        // From a tower another finger is carrying, a second finger can take the top part off.
+        if (stack.state === 'held' && index === 0) return;
         const d = Math.hypot(this.delta(p.x, shown.x), p.y - shown.y);
         if (d <= shown.item.reach + GRAB_SLOP && d < bestDist) {
           best = { stack, index };
@@ -986,29 +1001,29 @@ export class Game {
     }
     for (const stall of this.stalls) {
       const hit = stall.offerAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickFrom(stall.take()), stall.depth);
+      if (hit) offer(hit.dist, () => this.pickFrom(stall.take(), stall), stall.depth);
     }
     for (const vehicle of this.vehicles) {
       const hit = vehicle.offerAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickFrom(vehicle.take()), Infinity);
+      if (hit) offer(hit.dist, () => this.pickFrom(vehicle.take(), vehicle), Infinity);
     }
     for (const box of this.boxes) {
       const hit = box.offerAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickFrom(box.take()), box.depth);
+      if (hit) offer(hit.dist, () => this.pickFrom(box.take(), box), box.depth);
     }
     for (const hive of this.hives) {
       const hit = hive.offerAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickFrom(hive.take()), hive.depth);
+      if (hit) offer(hit.dist, () => this.pickFrom(hive.take(), hive), hive.depth);
     }
     for (const pile of this.woodpiles) {
       const hit = pile.offerAt(p.x, p.y, GRAB_SLOP / 2);
-      if (hit) offer(hit.dist, () => this.pickFrom(pile.take()), pile.depth);
+      if (hit) offer(hit.dist, () => this.pickFrom(pile.take(), pile), pile.depth);
     }
     for (const hunt of this.eggHunts) {
       const hit = hunt.at(p.x, p.y, GRAB_SLOP / 2);
       if (hit) offer(hit.dist, () => {
         audio.eggPop();
-        return this.pickFrom(hunt.take(hit.spot));
+        return this.pickFrom(hunt.take(hit.spot), hunt.spots[hit.spot]);
       }, hunt.spots[hit.spot].depth);
     }
 
@@ -1426,13 +1441,14 @@ export class Game {
 
   /** Take the treat sitting on top of the picnic basket. */
   private pickTreat(basket: Basket): Stack {
-    const { kind, x, bottom } = basket.take();
-    return this.picked(new Item(kind), undefined, x, bottom);
+    return this.pickFrom(basket.take(), basket);
   }
 
-  /** Take what a stall or a vehicle offers: a candle, a gift, a parcel... */
-  private pickFrom({ kind, x, bottom }: { kind: ItemKind; x: number; bottom: number }): Stack {
-    return this.picked(new Item(kind), undefined, x, bottom);
+  /** Take what a stall or a vehicle offers: a candle, a gift, a parcel... and any tower stacked on it. */
+  private pickFrom({ kind, x, bottom }: { kind: ItemKind; x: number; bottom: number }, giver: object): Stack {
+    const seat = this.offerSeats.find((s) => s.owner === giver);
+    const resting = this.stacks.find((s) => s.anchor && 'perch' in s.anchor && s.anchor.perch === seat);
+    return this.picked(new Item(kind), resting, x, bottom);
   }
 
   /** Take a bale of hay from the barn floor. */

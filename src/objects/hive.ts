@@ -1,6 +1,6 @@
 import { GROUND_Y } from '../config';
 import type { ItemKind } from './item';
-import { Offer } from './offer';
+import { Offer, type Offered } from './offer';
 
 const POST_UP = 70;
 const BOX_W = 96;
@@ -42,6 +42,10 @@ export class Hive {
 
   offerAt(px: number, py: number, slop: number): { dist: number } | null {
     return this.offer.at(px, py, this.shelf.x, this.shelf.y, slop);
+  }
+
+  offered(): Offered | null {
+    return this.offer.ready ? { kind: this.offer.kind, x: this.shelf.x, bottom: this.shelf.y } : null;
   }
 
   take(): { kind: ItemKind; x: number; bottom: number } {

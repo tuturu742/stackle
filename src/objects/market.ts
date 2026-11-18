@@ -1,7 +1,7 @@
 import { GROUND_Y } from '../config';
 import { ORNAMENTS } from './goods';
 import type { ItemKind } from './item';
-import { Offer } from './offer';
+import { Offer, type Offered } from './offer';
 import type { Perch } from './perch';
 
 const TABLE_HALF = 110;
@@ -96,6 +96,10 @@ export class DecorBox {
 
   offerAt(px: number, py: number, slop: number): { dist: number } | null {
     return this.offer.at(px, py, this.x, this.rim, slop);
+  }
+
+  offered(): Offered | null {
+    return this.offer.ready ? { kind: this.offer.kind, x: this.x, bottom: this.rim } : null;
   }
 
   take(): { kind: ItemKind; x: number; bottom: number } {

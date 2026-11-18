@@ -2,7 +2,7 @@ import { GROUND_Y } from '../config';
 import { FENCE_TOP } from './decor';
 import { settings } from '../settings';
 import type { Item, ItemKind } from './item';
-import { Offer } from './offer';
+import { Offer, type Offered } from './offer';
 import type { Perch } from './perch';
 
 // The autumn wood: being deep in a forest, with trees standing behind and
@@ -364,6 +364,10 @@ export class Woodpile implements Perch {
 
   offerAt(px: number, py: number, slop: number): { dist: number } | null {
     return this.offer.at(px, py, this.x + LOG_DX, this.depth, slop);
+  }
+
+  offered(): Offered | null {
+    return this.offer.ready ? { kind: this.offer.kind, x: this.x + LOG_DX, bottom: this.depth } : null;
   }
 
   take(): { kind: ItemKind; x: number; bottom: number } {

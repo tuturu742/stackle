@@ -1,6 +1,7 @@
 import { settings } from '../settings';
 import { GOODS, PAINTED_EGGS, drawGood, type PaintedEggKind } from './goods';
 import type { ItemKind } from './item';
+import type { Offered } from './offer';
 
 // The egg hunt: painted eggs tucked half out of sight round a level, peeking from
 // a tuft of grass, a clump of flowers, a heap of leaves or between two pebbles.
@@ -57,6 +58,11 @@ export class EggHunt {
       if (dist <= Math.max(radius, height / 2) + 14 + slop && (!best || dist < best.dist)) best = { spot: i, dist };
     });
     return best;
+  }
+
+  offered(i: number): Offered | null {
+    const spot = this.spots[i];
+    return spot.present ? { kind: spot.kind, x: spot.x, bottom: this.bottom(spot) } : null;
   }
 
   /** The egg comes out; the game makes a held stack where its bottom was. */

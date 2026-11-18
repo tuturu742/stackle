@@ -5,10 +5,11 @@ import type { SceneDef } from './scene';
 // with ferns and bracken along the back. An oak dropping acorns with the
 // squirrel under it and the owl in it, leaf piles and a hollow log to hide in, a
 // ring of toadstools that play notes, a tent and a campfire for toasting
-// marshmallows (wood on it burns), a stream with the beaver, a crate of pumpkins
-// and the carving table, the log cabin with its woodpile and a chopping block, a
-// vegetable bed under a rain cloud, wild apple and pear trees by the cider
-// press, and the dog hiding in a leaf pile. Only woodland animals and the dog.
+// marshmallows (wood on it burns) by a gramophone playing old tunes, a stream
+// with the beaver, a crate of pumpkins and the carving table, the log cabin
+// with its woodpile and a chopping block, a vegetable bed under a rain cloud,
+// wild apple and pear trees by the cider press, and the dog hiding in a leaf
+// pile. Only woodland animals and the dog.
 export const autumn: SceneDef = {
   width: 9 * 1024,
   start: 60,
@@ -21,12 +22,12 @@ export const autumn: SceneDef = {
     { type: 'leafpile', x: 620, seed: 1, animal: 'hedgehog' },
     { type: 'mushrooms', x: 860, seed: 1 },
 
-    // Screen 1: the tent with the fox in it, the campfire and a bag of marshmallows.
+    // Screen 1: the tent with the fox in it, the campfire, a bag of marshmallows and a gramophone.
     { type: 'tent', x: 1230 },
     { type: 'animal', x: 1230, animal: 'fox', depth: GROUND_Y + 40, home: 'tent' },
     { type: 'campfire', x: 1560 },
     { type: 'marshmallows', x: 1730 },
-    { type: 'rock', x: 1930, seed: 2 },
+    { type: 'boombox', x: 1910, style: 'autumn' },
 
     // Screen 2: the stream with the beaver, then a crate of pumpkins and the carving table.
     { type: 'puddle', x: 2380, width: 480 },
@@ -55,6 +56,7 @@ export const autumn: SceneDef = {
     { type: 'puddle', x: 6650, width: 220 },
     { type: 'animal', x: 6650, animal: 'duck', depth: GROUND_Y + 40, home: 'pond' },
     { type: 'bird', x: 6900, color: '#c9744f' },
+    { type: 'rock', x: 7060, seed: 2 },
 
     // Screen 7: a bin, the spinning top, and a hollow log with the raccoon hiding in it.
     { type: 'bin', x: 7300 },

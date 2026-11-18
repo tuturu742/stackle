@@ -35,7 +35,11 @@ from it out of committed files: the repo is public.
   in (`Bin.catches`), like a hoop; an animal sits on the bin. No aim assist.
 - Towers never tumble; sway while carried is drawn only (a damped spring), so the connection
   never breaks. Grabbing the bottom item lifts the whole tower; grabbing a higher item splits
-  it, taking that item and everything above. Picking a tree fruit or bed vegetable takes the tower on it too.
+  it, taking that item and everything above, even from a tower another finger is carrying. Picking a
+  tree fruit or bed vegetable takes the tower on it too.
+- Whatever a giver has waiting to take (a stall's next thing, the basket's treat, the honey jar, the
+  sleigh's gift, a box's next thing, the woodpile's log, a hidden painted egg) is a seat
+  (`OfferSeat`): a stack let go gently on it stays there, and taking the thing takes the tower too.
 - No stack limit: a tower grows past the top of the screen, out of view (the child asked; the
   view never zooms). A stack let go gently on top of a stack another finger is holding glues on,
   and the other finger then carries the whole tower.
@@ -70,7 +74,9 @@ from it out of committed files: the repo is public.
   sandwich, cookie in turn) sitting on top to take; the next one then rises out from inside; fruit or a vegetable on the grill bakes into a pie. An instrument put on an animal makes
   it play a tune (bigger animals lower). The boombox starts out playing song 1 (it starts with the level, once sound is allowed);
   each tap goes to song 2, 3, then off, then 1 again (`audio.playSong`; the loops are stand-ins for
-  real songs).
+  real songs). Every level has one, each with three tunes of its own (`Boombox` style): the
+  spring music box plays Mary Had a Little Lamb, Twinkle Twinkle and Row Your Boat on bells, the
+  autumn gramophone by the campfire Frère Jacques, London Bridge and Ode to Joy.
 - An animal out in the rain puts up an umbrella (its own colour), folded again when the rain
   stops; under a roof (barn, coop, window) it needs none.
 - The farmhouse has two storeys, four windows and a door that open and shut on tap; what sits on

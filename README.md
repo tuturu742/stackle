@@ -8,9 +8,9 @@ tractor and rain clouds. The app opens on a row of seasons: swipe to choose one,
 go in. Summer is the farm and winter is a snowy town with a sleigh of gifts, stalls, ice columns
 to colour with candles, a snow plough and a snow cannon for snowmen, sled hills and an ice rink.
 Spring is a park at the edge of a little town, with flower gardens, a frog pond, a playground,
-a fountain, an ice-cream cart, a beehive, butterflies, a nest where eggs hatch, a greenhouse, a
+a fountain, an ice-cream cart, a music box, a beehive, butterflies, a nest where eggs hatch, a greenhouse, a
 bridge over a stream, a kite and a rainbow after rain; autumn is deep in the woods, with an oak and
-a squirrel, leaf piles, a tent and a campfire for marshmallows, a log cabin, pumpkins to carve, a
+a squirrel, leaf piles, a tent and a campfire for marshmallows by a gramophone, a log cabin, pumpkins to carve, a
 cider press and toadstools that play notes. There are no
 scores, timers, text or fail states.
 

@@ -558,7 +558,8 @@ export function music(instrument: 'drum' | 'guitar' | 'trumpet', pitch: number):
 }
 
 // --- The boombox: three little song loops, stand-ins until real ones are made.
-// The winter radio: three old carols, played on bells.
+// The winter radio: three old carols, played on bells. The spring music box and the autumn
+// gramophone: three old nursery tunes each.
 
 interface Song {
   /** Seconds per step (an eighth note). */
@@ -632,6 +633,67 @@ const WISH: [number, number][] = [
   [0, 6],
 ];
 
+const LAMB: [number, number][] = [
+  [4, 2], [2, 2], [0, 2], [2, 2],
+  [4, 2], [4, 2], [4, 4],
+  [2, 2], [2, 2], [2, 4],
+  [4, 2], [7, 2], [7, 4],
+  [4, 2], [2, 2], [0, 2], [2, 2],
+  [4, 2], [4, 2], [4, 2], [4, 2],
+  [2, 2], [2, 2], [4, 2], [2, 2],
+  [0, 8],
+];
+const TWINKLE_START: [number, number][] = [
+  [0, 2], [0, 2], [7, 2], [7, 2],
+  [9, 2], [9, 2], [7, 4],
+  [5, 2], [5, 2], [4, 2], [4, 2],
+  [2, 2], [2, 2], [0, 4],
+];
+const TWINKLE_MIDDLE: [number, number][] = [
+  [7, 2], [7, 2], [5, 2], [5, 2],
+  [4, 2], [4, 2], [2, 4],
+];
+const TWINKLE: [number, number][] = [...TWINKLE_START, ...TWINKLE_MIDDLE, ...TWINKLE_MIDDLE, ...TWINKLE_START];
+// In 6/8.
+const ROW: [number, number][] = [
+  [0, 3], [0, 3],
+  [0, 2], [2, 1], [4, 3],
+  [4, 2], [2, 1], [4, 2], [5, 1],
+  [7, 6],
+  [12, 1], [12, 1], [12, 1], [7, 1], [7, 1], [7, 1],
+  [4, 1], [4, 1], [4, 1], [0, 1], [0, 1], [0, 1],
+  [7, 2], [5, 1], [4, 2], [2, 1],
+  [0, 6],
+];
+const JACQUES: [number, number][] = [
+  [0, 2], [2, 2], [4, 2], [0, 2],
+  [0, 2], [2, 2], [4, 2], [0, 2],
+  [4, 2], [5, 2], [7, 4],
+  [4, 2], [5, 2], [7, 4],
+  [7, 1], [9, 1], [7, 1], [5, 1], [4, 2], [0, 2],
+  [7, 1], [9, 1], [7, 1], [5, 1], [4, 2], [0, 2],
+  [0, 2], [-5, 2], [0, 4],
+  [0, 2], [-5, 2], [0, 4],
+];
+const BRIDGE_LINE: [number, number][] = [
+  [7, 3], [9, 1], [7, 2], [5, 2],
+  [4, 2], [5, 2], [7, 4],
+];
+const BRIDGE: [number, number][] = [
+  ...BRIDGE_LINE,
+  [2, 2], [4, 2], [5, 4],
+  [4, 2], [5, 2], [7, 4],
+  ...BRIDGE_LINE,
+  [2, 4], [7, 4],
+  [4, 2], [0, 6],
+];
+const JOY_LINE: [number, number][] = [
+  [4, 2], [4, 2], [5, 2], [7, 2],
+  [7, 2], [5, 2], [4, 2], [2, 2],
+  [0, 2], [0, 2], [2, 2], [4, 2],
+];
+const JOY: [number, number][] = [...JOY_LINE, [4, 3], [2, 1], [2, 4], ...JOY_LINE, [2, 3], [0, 1], [0, 4]];
+
 const SONGS: Song[] = [
   {
     step: 0.25,
@@ -676,13 +738,59 @@ const SONGS: Song[] = [
     bass: bassLine([-12, -7, -10, -12, -7, -10, -10, -12], 6, 6, 2),
     bells: true,
   },
+  // 7: Mary Had a Little Lamb, on the spring music box.
+  {
+    step: 0.22,
+    root: 523,
+    melody: tune(LAMB),
+    bass: bassLine([-12, -12, -17, -12, -12, -12, -17, -12], 8, 4),
+    bells: true,
+  },
+  // 8: Twinkle, Twinkle, Little Star.
+  {
+    step: 0.24,
+    root: 523,
+    melody: tune(TWINKLE),
+    bass: bassLine([-12, -19, -19, -17, -12, -17, -12, -17, -12, -19, -19, -12], 8, 4),
+    bells: true,
+  },
+  // 9: Row, Row, Row Your Boat.
+  {
+    step: 0.17,
+    root: 523,
+    melody: tune(ROW),
+    bass: bassLine([-12, -12, -12, -17, -12, -12, -17, -12], 6, 3),
+    bells: true,
+  },
+  // 10: Frère Jacques, on the autumn gramophone.
+  {
+    step: 0.22,
+    root: 349,
+    melody: tune(JACQUES),
+    bass: [-12, null, null, null, -5, null, null, null],
+  },
+  // 11: London Bridge.
+  {
+    step: 0.2,
+    root: 392,
+    melody: tune(BRIDGE),
+    bass: bassLine([-12, -12, -17, -12, -12, -12, -17, -12], 8, 4),
+  },
+  // 12: Ode to Joy.
+  {
+    step: 0.22,
+    root: 349,
+    melody: tune(JOY),
+    bass: bassLine([-12, -17, -12, -17, -12, -17, -12, -12], 8, 4),
+  },
 ];
 
 let songTimer = 0;
 let songStep = 0;
 let songNext = 0;
 
-/** Play a song on a loop (1-3 the boombox's, 4-6 the winter radio's carols), or 0 for quiet. */
+/** Play a song on a loop (1-3 the boombox's, 4-6 the winter radio's carols, 7-9 the spring music
+ * box's, 10-12 the autumn gramophone's), or 0 for quiet. */
 export function playSong(n: number): void {
   clearInterval(songTimer);
   songTimer = 0;

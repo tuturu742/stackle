@@ -49,11 +49,12 @@ export const spring: SceneDef = {
     { type: 'toy', x: 4700, toy: 'kite', depth: GROUND_Y + 50 },
     { type: 'ribbonpole', x: 4900 },
 
-    // Screen 5: the merry-go-round, the ice-cream cart, and the squirrel on a park bench.
+    // Screen 5: the merry-go-round, the ice-cream cart, the squirrel on a park bench, and a music box.
     { type: 'carousel', x: 5300 },
     { type: 'stall', x: 5700, look: 'icecream' },
     { type: 'bench', x: 5980 },
     { type: 'animal', x: 6022, animal: 'squirrel', depth: GROUND_Y + 40, home: 'bench', seat: 1 },
+    { type: 'boombox', x: 6160, style: 'spring' },
 
     // Screen 6: a white-blossomed pear tree, and the stream with its bridge and the duck.
     { type: 'tree', x: 6280, fruit: 'pear', look: 'blossom' },

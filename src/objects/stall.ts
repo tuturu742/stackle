@@ -2,6 +2,7 @@ import { GROUND_Y } from '../config';
 import { CANDLES, FASTFOOD, ICECREAMS, ICE_BLOCKS, ORNAMENTS, SWEETS, WARM, drawCandleFlame, isCandle } from './goods';
 import { WINTER_HATS } from './hat';
 import { drawLoose, sizeOf, type ItemKind, type LooseKind } from './item';
+import type { Offered } from './offer';
 
 // Winter stalls that each give one kind of thing, like the picnic basket: the
 // next one sits ready on the counter (or in the chest's opening); take it and
@@ -118,6 +119,10 @@ export class Stall {
     const { radius, height } = sizeOf(this.kind as LooseKind);
     const dist = Math.hypot(px - this.spotX, py - this.itemY(1));
     return dist <= Math.max(radius, height / 2) + slop ? { dist } : null;
+  }
+
+  offered(): Offered | null {
+    return this.up >= 1 ? { kind: this.kind, x: this.spotX, bottom: this.spotY } : null;
   }
 
   /** Take the thing on offer; the next one starts rising. */

@@ -1,7 +1,7 @@
 import { GROUND_Y } from '../config';
 import { GIFTS, SNOWBALLS, type SnowballKind } from './goods';
 import { drawLoose, sizeOf, type ItemKind } from './item';
-import { Offer } from './offer';
+import { Offer, type Offered } from './offer';
 import type { Perch } from './perch';
 
 export type VehicleKind = 'tractor' | 'wagon' | 'sleigh' | 'postvan' | 'plough' | 'barrow';
@@ -117,6 +117,10 @@ export class Vehicle implements Perch {
     if (!this.offer) return null;
     const { x, bottom } = this.offerSpot;
     return this.offer.at(px, py, x, bottom, slop);
+  }
+
+  offered(): Offered | null {
+    return this.offer?.ready ? { kind: this.offer.kind, ...this.offerSpot } : null;
   }
 
   /** Take the gift or parcel it carries; another comes up after it. */

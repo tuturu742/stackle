@@ -1,6 +1,13 @@
 import type { ItemKind } from './item';
 import { drawLoose, sizeOf } from './item';
 
+/** A thing waiting at a giver to be taken: what it is, its middle and its bottom. */
+export interface Offered {
+  kind: ItemKind;
+  x: number;
+  bottom: number;
+}
+
 /** Seconds for the next thing to rise into place after one is taken. */
 const RISE_SECONDS = 0.45;
 
@@ -18,6 +25,11 @@ export class Offer {
 
   get kind(): ItemKind {
     return this.kinds[this.next];
+  }
+
+  /** Is it sitting there, ready to take? */
+  get ready(): boolean {
+    return this.up >= 1;
   }
 
   get turn(): number {
