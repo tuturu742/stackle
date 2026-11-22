@@ -37,16 +37,23 @@ export class Sky {
   toNight = false;
   private left = 0;
   private width = SCREEN_W;
+  /** The top of the view, in world units: the sun and stars keep their place below it. */
+  private top = 0;
   /** The day sky's colours, top and bottom, for the level. */
   colors = { top: palette.skyTop, bottom: palette.skyBottom };
 
-  setView(left: number, width: number): void {
+  setView(left: number, width: number, top: number): void {
     this.left = left;
     this.width = width;
+    this.top = top;
   }
 
   private get sunX(): number {
     return this.left + this.width - SUN.fromRight;
+  }
+
+  private get sunY(): number {
+    return this.top + SUN.y;
   }
 
   get isNight(): boolean {
@@ -54,7 +61,7 @@ export class Sky {
   }
 
   hits(x: number, y: number, slop: number): boolean {
-    return Math.hypot(x - this.sunX, y - SUN.y) <= SUN.r + slop;
+    return Math.hypot(x - this.sunX, y - this.sunY) <= SUN.r + slop;
   }
 
   /** Straight to day or night, without the fade or the chime, as when a saved scene opens. */
@@ -94,7 +101,7 @@ export class Sky {
       ctx.globalAlpha = 1 - t;
       ctx.fillStyle = palette.sun;
       ctx.beginPath();
-      ctx.arc(x, SUN.y + t * 50, SUN.r, 0, Math.PI * 2);
+      ctx.arc(x, this.sunY + t * 50, SUN.r, 0, Math.PI * 2);
       ctx.fill();
     }
     if (t > 0) {
@@ -103,11 +110,11 @@ export class Sky {
       const spread = this.width / SCREEN_W;
       for (const [sx, sy, size] of STARS) {
         ctx.beginPath();
-        ctx.arc(this.left + sx * spread, sy, size, 0, Math.PI * 2);
+        ctx.arc(this.left + sx * spread, this.top + sy, size, 0, Math.PI * 2);
         ctx.fill();
       }
       // A soft crescent: the moon with a round bite clipped out of it.
-      const y = SUN.y + (1 - t) * 50;
+      const y = this.sunY + (1 - t) * 50;
       ctx.save();
       ctx.beginPath();
       ctx.rect(x - SUN.r * 2, y - SUN.r * 2, SUN.r * 4, SUN.r * 4);

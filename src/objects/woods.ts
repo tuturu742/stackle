@@ -348,7 +348,7 @@ const LOG_ROWS = [5, 4, 3];
 const PILE_UP = LOG_ROWS.length * LOG_R * 2;
 
 /** Where the next log to take lies, beside the pile on the ground. */
-const LOG_DX = 150;
+const LOG_DX = 175;
 
 /**
  * A neat pile of cut logs with their ringed ends showing, under a little

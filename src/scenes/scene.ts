@@ -47,6 +47,8 @@ export type ObjectDef =
   | { type: 'owl'; x: number; height: number }
   /** A picnic blanket with bunting above it. */
   | { type: 'picnic'; x: number; width: number }
+  /** A string of paper lanterns between two poles, `high` above the ground; each lantern switches on a tap. */
+  | { type: 'lanterns'; x: number; width: number; high?: number }
   | { type: 'basket'; x: number }
   | { type: 'grill'; x: number }
   /** Plays a song per tap, then quiet: the winter radio plays carols, spring has a music box, autumn a gramophone. */
@@ -71,8 +73,8 @@ export type ObjectDef =
   | { type: 'lamp'; x: number }
   /** A snowy pine; ornaments put on it hang there. With `garland` it has a string of lights. */
   | { type: 'pine'; x: number; seed: number; garland?: boolean; height?: number }
-  /** A string of lights between two posts whose bulbs light up one after another. */
-  | { type: 'chaselights'; x: number; width: number }
+  /** A string of big lights between two tall candy-cane posts; each bulb switches on or off. */
+  | { type: 'lights'; x: number; width: number }
   /** Santa's chair: put the polar bear in it with an animal entry at the same x, `home: 'chair'`. */
   | { type: 'santachair'; x: number }
   /** A Christmas market table with a bench at each end (`home: 'table'` seats an animal there). */

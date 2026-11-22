@@ -41,9 +41,9 @@ from it out of committed files: the repo is public.
   sleigh's gift, a box's next thing, the woodpile's log, a hidden painted egg) is a seat
   (`OfferSeat`): a stack let go gently on it stays there, and taking the thing takes the tower too.
 - No stack limit: a tower grows past the top of the screen, out of view (the child asked; the
-  view never zooms). A stack let go gently on top of a stack another finger is holding glues on,
+  view never zooms to fit it). A stack let go gently on top of a stack another finger is holding glues on,
   and the other finger then carries the whole tower.
-- The tree does nothing when touched; it only gives fruit. (The owl in the pear tree is its own
+- The tree does nothing when touched; it only gives fruit (four). Trees are drawn at `TREE_SCALE` = 1.05 / `VIEW_ZOOM`: the zoom must not make them bigger (the parent asked). (The owl in the pear tree is drawn behind anything stacked on the fruit, and is its own
   thing: asleep by day, a tap only makes it peek with one eye; awake at night with glowing eyes,
   a tap makes it hoot.)
 - Only things that come back (fruit, vegetables, corn, hay, treats, pies, eggs, hats, and the winter
@@ -83,7 +83,8 @@ from it out of committed files: the repo is public.
   a shut sill or in a shut doorway is hidden, and an animal waiting there says hello when opened
   (the cat starts behind an upstairs shutter). Tapping the chimney starts smoke, tapping again
   stops it. Two lanterns hang over the door. A bench for two stands in front.
-- Lanterns (picnic string, farmhouse door) each switch on or off with their own tap; lit ones glow
+- Lanterns (picnic string, farmhouse door, and lantern strings without a blanket over the spring
+  pond and the autumn camp, `type: 'lanterns'`) each switch on or off with their own tap; lit ones glow
   over the dark at night (`src/objects/lantern.ts`). They start lit. Floating on a puddle, the model ship sails back and forth with a soft motor
   (heard only while in sight) and the duck paddles slowly; both face the way they go.
 - A hen fed while sitting in the coop lays an egg, which drops out underneath. The mud puddle
@@ -143,12 +144,13 @@ from it out of committed files: the repo is public.
     (`Stall`: ice chest, candles, sweets, warm drinks, hats, fast food, ornaments) each have their next
     thing waiting to take, the next rising after. Here the next thing is picked at random (never
     the same twice running; the ice chest mostly gives plain cubes): the parent asked for that.
-    A tap on a stall switches its string of lights. Caps: 6 gifts and parcels, 16 ice cubes, 30 decorations (stall and house box together), 10 per other stall, hats share the
+    A tap on a stall switches its string of lights. Caps: 6 gifts and parcels, 16 ice cubes (beyond the castle's), 30 decorations (stall and house box together), 10 per other stall, hats share the
     hat cap, 12 snowballs.
   - A gift or parcel put on an animal's head (or its hat) opens with confetti, and the animal
     dances.
   - Ice blocks (cube, window, turret top) build walls: one let go beside another ice tower stands
-    flush against it on the same ground line.
+    flush against it on the same ground line. Between the reindeer and the ice chest stands an ice
+    castle built of the same blocks (real stacks, `iceCastle` in `winter.ts`), free to take apart.
   - Candles come lit; a tap switches one on or off, and a lit one glows at night wherever it is. A
     candle with something on it shows no wick. A candle standing on an ice column (`IceColumns`, a
     perch) gives the ice its colour, back to plain ice once it is taken off.
@@ -156,10 +158,12 @@ from it out of committed files: the repo is public.
     spot on the tip; a let-go goes to the nearer of a free spot and the top of what hangs there, so
     decorations stack like anything else. Decorations: baubles in five colours and designs, a bell,
     a star. Some
-    pines have a string of lights a tap switches; plain pines shed snow. Over the rink, a string of
-    lights (`ChaseLights`) lights its bulbs one after another. Every light at night is switchable:
-    lamps, stall lights, pine lights, candles; the rink's string and the house's eave lights bulb by
-    bulb (a tap on a rink post switches the whole string). A bin stands by the ice chest.
+    pines have a string of a few big lights a tap switches; plain pines shed snow. Over the rink and
+    across the street by the post van hang strings of big lights (`LightString`) between candy-cane
+    posts: each bulb is on or off in full colour, never dimmed, running or blinking (the parent found
+    the old running cycle washed out). Every light at night is switchable: lamps, stall lights, pine
+    lights, candles; the light strings and the house's eave lights bulb by bulb (a tap on a string's
+    post switches the whole string). A bin stands by the ice chest.
   - The town house is dressed for Christmas, with a box of decorations (`DecorBox`) on its step
     for the pine beside it; the ornament stall has a pine right by it too.
   - Santa's chair (`SantaChair`) has the polar bear in a Santa hat on the cushion, and a small
@@ -210,9 +214,12 @@ from it out of committed files: the repo is public.
   (`ChoppingBlock`: a log on it is split into kindling with three axe chops), a vegetable bed under
   the rain cloud, a crate of pumpkins (`DecorBox` look `pumpkins`, cap 6) by the
   carving table, wild apple and pear trees by the cider press, a hollow log (`Decor` `log`, a hiding
-  place: the raccoon), puddles and mud. The dog hides in a leaf pile.
+  place: the raccoon), puddles and mud, a wild beehive and a creek with a footbridge (no bird box: birds nest in spring).
+  Firewood and kindling are drawn big (`FIREWOOD_SCALE`).
+  The dog hides in a leaf pile.
   - The oak (autumn `Tree`) gives acorns; the squirrel sits under it and the owl in it.
-  - Leaf piles (`Decor` `leafpile`) hide an animal like a bush (the hedgehog and the bunny start in
+  - Leaf piles (`Decor` `leafpile`; decor is drawn bigger than its shape, `DECOR_SIZE`, hiding places
+    most) hide an animal like a bush (the hedgehog and the bunny start in
     one); a tap puffs leaves up.
   - Stations (`src/objects/station.ts`) make one thing into another in 2.5 s: the carving table a
     pumpkin into a jack-o'-lantern, the cider press an apple or pear into juice, the campfire (a tap
@@ -227,6 +234,11 @@ from it out of committed files: the repo is public.
   corner (140 px) for 3 s (under a parents icon) opens an icon-only panel; a faint ring fills under the finger after the first second. Only lifting or
   moving the finger away stops the hold, since iPadOS may cancel a long touch near the top edge. The panel has: sound, reduce motion (no sway, squash, glide; small splashes; gentler swing
   and windmill), start every level again (hold 2 s), close. Settings live in `src/settings.ts`.
+- Use the whole screen: the view is drawn a little closer than the design screen (`VIEW_ZOOM`,
+  fixed, anchored at the bottom; the sun, clouds and kite keep below the top of the view), and
+  tall things (pines, sled hills, the raised rink, strings of
+  lights and lanterns, tall backdrops) fill the upper half. The parent found things too small and
+  the top half too empty; keep each screen fairly full. The farmhouse chimney sits low on the roof so its smoke stays in view.
 - Target 60 fps on the iPad 9th gen: keep object counts modest.
 
 ## Layout
@@ -248,7 +260,7 @@ from it out of committed files: the repo is public.
   older single save is read as summer's, mid-play. A save from another layout keeps its stacks; animals are never lost.
 - `public/`: manifest, icons (`icon.svg` is the source of the PNGs) and the service worker, which
   serves a cached copy offline and refreshes it on each online launch.
-- World units: one screen is 1024x768, ground at y=640.
+- World units: one screen is 1024x768, ground at y=600 (`GROUND_Y`).
 - In dev builds the level being played is on `window.game` (once entered), so browser tests can
   inspect `game.stacks`; `window.hub`, `enterLevel(id)` and `leaveLevel()` drive the hub.
 

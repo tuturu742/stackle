@@ -1,4 +1,4 @@
-import { GROUND_Y, REGROW_SECONDS, palette } from '../config';
+import { GROUND_Y, REGROW_SECONDS, VIEW_ZOOM, palette } from '../config';
 import * as audio from '../audio';
 import { FRUIT, drawFruit, type FruitKind } from './fruit';
 
@@ -17,6 +17,10 @@ const UNRIPE_MAX_SCALE = 0.6;
 const RIPE_POP_SECONDS = 0.3;
 /** Rain makes fruit grow back this many times faster. */
 const RAIN_BOOST = 3;
+
+/** Trees are drawn at this size around the foot of the trunk: with the view's zoom they look 1.05x
+ * the size they had before the zoom (the parent found them too big at full zoom). */
+const TREE_SCALE = 1.05 / VIEW_ZOOM;
 
 // Fruit positions relative to the trunk base, low enough to reach easily.
 const SLOT_OFFSETS = [
@@ -45,8 +49,8 @@ export class Tree {
     readonly look: TreeLook = 'summer',
   ) {
     this.slots = SLOT_OFFSETS.map(([dx, dy]) => ({
-      x: x + dx,
-      y: GROUND_Y + dy,
+      x: x + dx * TREE_SCALE,
+      y: GROUND_Y + dy * TREE_SCALE,
       growth: 1,
       wobble: 0,
       ripeAge: RIPE_POP_SECONDS,
@@ -104,6 +108,10 @@ export class Tree {
   }
 
   draw(ctx: CanvasRenderingContext2D, time: number): void {
+    ctx.save();
+    ctx.translate(this.x, GROUND_Y);
+    ctx.scale(TREE_SCALE, TREE_SCALE);
+    ctx.translate(-this.x, -GROUND_Y);
     ctx.fillStyle = palette.trunk;
     ctx.beginPath();
     ctx.roundRect(this.x - 22, GROUND_Y - 250, 44, 260, 18);
@@ -127,6 +135,7 @@ export class Tree {
     ctx.beginPath();
     ctx.arc(this.x - 40, cy - 70, 55, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
     for (const slot of this.slots) {
       if (slot.growth <= 0.02) continue;
       const g = this.scaleOf(slot);

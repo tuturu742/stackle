@@ -159,7 +159,7 @@ function mixHex(a: string, b: string, t: number): string {
 
 const HOUSES = ['#f7d9c4', '#f6e7b8', '#d8e8f3', '#f3d3df', '#dfeccd', '#e9ddf2'];
 const ROOFS = ['#e39a86', '#9fb8d9', '#d98c9f', '#8fbf9e', '#c9a0c9'];
-const TOWN_CELL = 110;
+const TOWN_CELL = 130;
 const PARK_CELL = 150;
 
 /**
@@ -185,7 +185,7 @@ function townRow(ctx: CanvasRenderingContext2D, left: number, right: number, shi
   for (let n = first; n <= last; n++) {
     const x = n * TOWN_CELL + left - shift;
     const w = TOWN_CELL - 14;
-    const h = 70 + Math.floor(hash(n * 5 + 1) * 3) * 26;
+    const h = 120 + Math.floor(hash(n * 5 + 1) * 3) * 40;
     const wall = mixHex(HOUSES[Math.floor(hash(n * 7) * HOUSES.length)], '#eef5e6', 0.25);
     const roof = mixHex(ROOFS[Math.floor(hash(n * 11 + 3) * ROOFS.length)], '#eef5e6', 0.25);
     ctx.fillStyle = wall;
@@ -198,13 +198,13 @@ function townRow(ctx: CanvasRenderingContext2D, left: number, right: number, shi
     const kind = hash(n * 13 + 2);
     if (kind < 0.6) {
       ctx.moveTo(x + 1, base - h + 2);
-      ctx.lineTo(x + 7 + w / 2, base - h - 38);
+      ctx.lineTo(x + 7 + w / 2, base - h - 50);
       ctx.lineTo(x + 13 + w, base - h + 2);
     } else if (kind < 0.85) {
-      ctx.ellipse(x + 7 + w / 2, base - h + 2, w / 2 + 5, 24, 0, Math.PI, Math.PI * 2);
+      ctx.ellipse(x + 7 + w / 2, base - h + 2, w / 2 + 5, 32, 0, Math.PI, Math.PI * 2);
     } else {
       ctx.moveTo(x + 7 + w * 0.3, base - h + 2);
-      ctx.lineTo(x + 7 + w / 2, base - h - 60);
+      ctx.lineTo(x + 7 + w / 2, base - h - 80);
       ctx.lineTo(x + 7 + w * 0.7, base - h + 2);
     }
     ctx.closePath();

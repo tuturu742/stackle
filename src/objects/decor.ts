@@ -6,6 +6,9 @@ import type { Perch } from './perch';
 
 export type DecorKind = 'bush' | 'rock' | 'flowers' | 'leafpile' | 'log';
 
+/** Each kind is drawn this much bigger than its shape. */
+const DECOR_SIZE: Record<DecorKind, number> = { bush: 1.3, rock: 1.4, flowers: 1.3, leafpile: 1.7, log: 2 };
+
 /** The fence's top rail, where birds sit. */
 export const FENCE_TOP = GROUND_Y - 46;
 
@@ -68,6 +71,11 @@ export class Decor implements Perch {
     private readonly seed = 0,
   ) {}
 
+  /** How much bigger than its drawn shape it stands: hiding places are big enough to hide in. */
+  private get size(): number {
+    return DECOR_SIZE[this.kind];
+  }
+
   /** Bushes, leaf piles and hollow logs are hiding places for one animal. */
   get hiding(): boolean {
     return this.kind === 'bush' || this.kind === 'leafpile' || this.kind === 'log';
@@ -82,11 +90,11 @@ export class Decor implements Perch {
   }
 
   seatTop(): number {
-    return GROUND_Y - 52;
+    return GROUND_Y - 52 * this.size;
   }
 
   seatReach(): number {
-    return 60;
+    return 60 * this.size;
   }
 
   accepts(_i: number, bottom: Item): boolean {
@@ -99,7 +107,8 @@ export class Decor implements Perch {
    */
   catches(_i: number, x: number, bottom: number, height: number): boolean {
     const middle = bottom - Math.min(height, 90) / 2;
-    return Math.abs(x - this.x) <= BUSH_REACH && middle >= GROUND_Y - 130 && middle <= GROUND_Y - 12 && bottom <= GROUND_Y + 8;
+    const top = GROUND_Y - 130 * this.size;
+    return Math.abs(x - this.x) <= BUSH_REACH * this.size && middle >= top && middle <= GROUND_Y - 12 && bottom <= GROUND_Y + 8;
   }
 
   /** A shake; returns true on the shake that is enough to bring out what hides inside. */
@@ -125,7 +134,7 @@ export class Decor implements Perch {
     if (this.kind === 'rock') return false;
     const w = this.kind === 'bush' ? 70 : this.kind === 'leafpile' ? 80 : this.kind === 'log' ? 95 : 40;
     const h = this.kind === 'bush' ? 80 : this.kind === 'log' ? 72 : 60;
-    return Math.abs(px - this.x) <= w + slop && py <= GROUND_Y + 10 && py >= GROUND_Y - h - slop;
+    return Math.abs(px - this.x) <= w * this.size + slop && py <= GROUND_Y + 10 && py >= GROUND_Y - h * this.size - slop;
   }
 
   tap(): void {
@@ -142,6 +151,15 @@ export class Decor implements Perch {
   draw(ctx: CanvasRenderingContext2D, time: number): void {
     const amount = settings.reduceMotion ? 0.3 : 1;
     const w = Math.sin(time * 18) * this.wiggle * amount;
+    ctx.save();
+    ctx.translate(this.x, GROUND_Y);
+    ctx.scale(this.size, this.size);
+    ctx.translate(-this.x, -GROUND_Y);
+    this.drawShape(ctx, w, amount);
+    ctx.restore();
+  }
+
+  private drawShape(ctx: CanvasRenderingContext2D, w: number, amount: number): void {
     if (this.kind === 'rock') {
       ctx.fillStyle = '#b8bcc2';
       ctx.beginPath();

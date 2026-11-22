@@ -4,7 +4,7 @@ import type { Perch } from './perch';
 
 const WIDTH = 420;
 const WALL_TOP = GROUND_Y - 380;
-const ROOF_TOP = GROUND_Y - 490;
+const ROOF_TOP = GROUND_Y - 445;
 /** The band of trim between the two floors. */
 const FLOOR_Y = GROUND_Y - 206;
 const WIN_W = 100;
@@ -15,9 +15,10 @@ const WIN_TOPS = [GROUND_Y - 176, GROUND_Y - 346];
 const WIN_DX = [146, 130];
 const DOOR_W = 96;
 const DOOR_H = 150;
-const CHIMNEY_X = 90;
+/** The chimney stands low on the roof's slope, so its smoke has room to rise in view. */
+const CHIMNEY_X = 150;
 const CHIMNEY_W = 36;
-const CHIMNEY_TOP = ROOF_TOP - 6;
+const CHIMNEY_TOP = ROOF_TOP + 22;
 /** Seconds between puffs of smoke, and how long each lasts. */
 const PUFF_EVERY = 0.45;
 const PUFF_SECONDS = 4;
@@ -676,7 +677,7 @@ export class House implements Perch {
       ctx.globalAlpha = 0.7 * (1 - t) * Math.min(1, p.age * 4);
       ctx.fillStyle = '#eef0f2';
       ctx.beginPath();
-      ctx.arc(cx + Math.sin(p.age * 1.3 + p.seed) * 14 + p.age * 12, CHIMNEY_TOP - 6 - p.age * 55, r, 0, Math.PI * 2);
+      ctx.arc(cx + Math.sin(p.age * 1.3 + p.seed) * 14 + p.age * 34, CHIMNEY_TOP - 6 - p.age * 20, r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;

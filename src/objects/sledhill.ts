@@ -2,9 +2,9 @@ import { GROUND_Y } from '../config';
 import type { Perch } from './perch';
 
 /** How high the top of the slope is above the ground. */
-const HEIGHT = 210;
+const HEIGHT = 300;
 /** The slope runs from here (top, left of the hill's x) to here (foot), then flat for a run-out. */
-const TOP_DX = -230;
+const TOP_DX = -260;
 const FOOT_DX = 150;
 const RUNOUT = 170;
 /** Where the run-out ends, in slope lengths past the foot. */

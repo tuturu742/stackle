@@ -13,7 +13,9 @@ interface Scratch {
 }
 
 /** How high the snowy terrace under the rink stands above the ground line. */
-const RISE = 78;
+const RISE = 130;
+/** Steps up the terrace at each end. */
+const STEPS = 5;
 
 /**
  * A frozen rink up on a snowy terrace, off the road. Whatever is let go on it
@@ -84,11 +86,11 @@ export class Rink {
     ctx.fillStyle = '#f4f8fc';
     for (const side of [-1, 1]) {
       const edge = side < 0 ? left : right;
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < STEPS; k++) {
         const w = 34;
         const sx = edge - side * (k * 18) - (side < 0 ? w : 0);
         ctx.beginPath();
-        ctx.roundRect(sx - side * 10, GROUND_Y - 4 - k * 24, w, 10, 4);
+        ctx.roundRect(sx - side * 10, GROUND_Y - 4 - (k * RISE) / STEPS, w, 10, 4);
         ctx.fill();
       }
     }

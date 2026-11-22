@@ -3,13 +3,13 @@ import type { SceneDef } from './scene';
 
 // Spring: a park at the edge of a little town, nine screens that loop round,
 // behind a flowering hedge with the town's roofs beyond and a sandy path in
-// front. Cherry trees in flower, flower gardens the rain brings up, a beehive
+// front. Fruit trees in flower, flower gardens the rain brings up, a beehive
 // with honey, a birdhouse and butterflies that follow a carried flower, a
 // playground (slide, seesaw, merry-go-round), a fountain and an ice-cream cart,
-// the frog pond with lily pads, an Easter egg hunt (painted eggs tucked away all
-// over the park, hidden again out of sight once found) and a nest where an egg
-// hatches into a chick, a kite and a ribbon pole, a stream with a little bridge, the
-// greenhouse, and a rainbow after rain.
+// the frog pond with lily pads under paper lanterns, an Easter egg hunt (painted
+// eggs tucked away all over the park, hidden again out of sight once found) and a
+// nest where an egg hatches into a chick, a kite and a ribbon pole, a stream with
+// a little bridge, the greenhouse, and a rainbow after rain.
 export const spring: SceneDef = {
   width: 9 * 1024,
   start: 60,
@@ -40,10 +40,12 @@ export const spring: SceneDef = {
     { type: 'lilypads', x: 3330 },
     { type: 'animal', x: 3330, animal: 'frog', depth: GROUND_Y + 40, home: 'pads' },
     { type: 'animal', x: 3200, animal: 'duck', depth: GROUND_Y + 40, home: 'pond' },
+    { type: 'lanterns', x: 3330, width: 480, high: 340 },
     { type: 'bush', x: 3760, seed: 3, animal: 'bunny' },
     { type: 'bird', x: 3900, color: '#7fa7d9' },
 
-    // Screen 4: the nest, the lamb, the kite and the ribbon pole.
+    // Screen 4: an apple tree in blossom, the nest, the lamb, the kite and the ribbon pole.
+    { type: 'tree', x: 4130, fruit: 'apple', look: 'blossom' },
     { type: 'nest', x: 4400 },
     { type: 'animal', x: 4560, animal: 'lamb', depth: GROUND_Y + 56 },
     { type: 'toy', x: 4700, toy: 'kite', depth: GROUND_Y + 50 },
@@ -68,12 +70,14 @@ export const spring: SceneDef = {
     { type: 'animal', x: 7820, animal: 'cat', depth: GROUND_Y + 56 },
     { type: 'mud', x: 7990, width: 180 },
 
-    // Screen 8: a bin, the spinning top, the hedgehog, a rock and a bush, back round to the cherry tree.
-    { type: 'bin', x: 8330 },
-    { type: 'toy', x: 8520, toy: 'top', depth: GROUND_Y + 50 },
-    { type: 'animal', x: 8640, animal: 'hedgehog', depth: GROUND_Y + 44 },
-    { type: 'rock', x: 8780, seed: 5 },
-    { type: 'bush', x: 8960, seed: 6 },
+    // Screen 8: a bin, the spinning top, the hedgehog on a bench, flowers, a rock and a bush, back round to the cherry tree.
+    { type: 'bin', x: 8300 },
+    { type: 'toy', x: 8450, toy: 'top', depth: GROUND_Y + 50 },
+    { type: 'bench', x: 8620 },
+    { type: 'animal', x: 8578, animal: 'hedgehog', depth: GROUND_Y + 40, home: 'bench', seat: 0 },
+    { type: 'flowers', x: 8800, seed: 4 },
+    { type: 'rock', x: 8900, seed: 5 },
+    { type: 'bush', x: 9020, seed: 6 },
     { type: 'bird', x: 9000, color: '#e8a06b' },
 
     // The Easter egg hunt: one painted egg in each hiding place, spread over the park.

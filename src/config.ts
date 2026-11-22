@@ -6,6 +6,10 @@ export const WORLD_H = 768;
 // leaves the app on iPad.
 export const GROUND_Y = 600;
 
+/** The view is drawn this much closer than the design screen, anchored at the bottom: things are
+ * bigger and less of the empty sky shows. It never changes while playing. */
+export const VIEW_ZOOM = 1.15;
+
 export const STEP = 1 / 60;
 
 // Touch is forgiving: an object can be grabbed this far outside its shape.

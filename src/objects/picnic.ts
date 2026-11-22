@@ -8,7 +8,8 @@ import type { Perch } from './perch';
 
 const LANTERN_COLORS = ['#f28b82', '#f6c26b', '#81c7e8', '#a5d68f', '#b39ddb'];
 const SAG = 50;
-const STRING_Y = GROUND_Y - 240;
+/** How high the poles hold the string, unless told otherwise. */
+const STRING_HIGH = 240;
 
 interface StringLantern {
   lit: boolean;
@@ -19,7 +20,8 @@ interface StringLantern {
 /**
  * The picnic place: a checked blanket on the grass with a string of paper
  * lanterns above it. Each lantern switches on or off with its own tap and
- * glows at night.
+ * glows at night. Without the blanket it is just the string of lanterns, as
+ * over the autumn camp.
  */
 export class Picnic {
   /** The blanket lies flat, under anything put on it. */
@@ -32,6 +34,9 @@ export class Picnic {
   constructor(
     readonly x: number,
     readonly width: number,
+    private readonly blanket = true,
+    /** How high the poles hold the string. */
+    private readonly high = STRING_HIGH,
   ) {
     const [a, b] = this.poles;
     const n = Math.max(4, Math.round((b - a) / 56));
@@ -45,7 +50,7 @@ export class Picnic {
   /** A point along the sagging string, 0 at one pole to 1 at the other. */
   private along(t: number): { x: number; y: number } {
     const [a, b] = this.poles;
-    return { x: a + (b - a) * t, y: STRING_Y + SAG * 4 * t * (1 - t) };
+    return { x: a + (b - a) * t, y: GROUND_Y - this.high + SAG * 4 * t * (1 - t) };
   }
 
   /** Where lantern `i` hangs from the string, and its angle as it sways. */
@@ -89,7 +94,7 @@ export class Picnic {
     ctx.fillStyle = '#b07d5b';
     for (const px of [a, b]) {
       ctx.beginPath();
-      ctx.roundRect(px - 5, GROUND_Y - 250, 10, 252, 5);
+      ctx.roundRect(px - 6, GROUND_Y - this.high - 10, 12, this.high + 12, 6);
       ctx.fill();
     }
     ctx.strokeStyle = '#6b5a4e';
@@ -117,6 +122,7 @@ export class Picnic {
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
+    if (!this.blanket) return;
     const top = GROUND_Y + 8;
     const bottom = GROUND_Y + 50;
     const left = this.x - this.width / 2;

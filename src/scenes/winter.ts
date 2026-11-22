@@ -1,12 +1,28 @@
 import { GROUND_Y } from '../config';
-import type { SceneDef } from './scene';
+import type { IceKind } from '../objects/goods';
+import type { SceneDef, ObjectDef } from './scene';
+
+/** A little castle of the ice chest's own blocks, standing as real towers that can be taken apart. */
+const CASTLE: IceKind[][] = [
+  ['icecube', 'icecube', 'icewindow', 'icetop'],
+  ['icecube', 'icewindow'],
+  ['icecube', 'icecube', 'icecube', 'icewindow', 'icetop'],
+  ['icecube', 'icewindow'],
+  ['icecube', 'icecube', 'icewindow', 'icetop'],
+];
+/** Ice blocks are 80 wide: the columns stand flush side by side. */
+const BLOCK_W = 80;
+
+function iceCastle(x: number, depth: number): ObjectDef[] {
+  return CASTLE.map((items, i) => ({ type: 'stack', x: x + (i - (CASTLE.length - 1) / 2) * BLOCK_W, items, depth }));
+}
 
 // The winter town: thirteen screens of snow, looping round like the farm. A
-// sleigh with gifts, an ice chest to build with, a house with a fox at its
+// sleigh with gifts, an ice castle and the ice chest to build with, a house with a fox at its
 // window, candles for the ice columns, stalls of sweets, cocoa, hats, fast food
 // and ornaments, the post van with parcels, the snow plough and the snow cannon
-// for snowmen, two sled hills, the ice rink up on a terrace under running
-// lights, a Christmas market table, and Santa's chair with the polar bear in it,
+// for snowmen, two sled hills, the ice rink up on a terrace under a string
+// of lights, a Christmas market table, and Santa's chair with the polar bear in it,
 // small friends on its arms, presents and a radio playing carols.
 export const winter: SceneDef = {
   width: 13 * 1024,
@@ -15,15 +31,18 @@ export const winter: SceneDef = {
   objects: [
     // Screen 0: the sleigh with a gift on the back, and the reindeer.
     { type: 'pine', x: 120, seed: 0, garland: true },
-    { type: 'vehicle', x: 520, vehicle: 'sleigh' },
-    { type: 'animal', x: 800, animal: 'reindeer', depth: GROUND_Y + 40, hat: 'earmuffs' },
-    { type: 'lamp', x: 960 },
+    { type: 'vehicle', x: 460, vehicle: 'sleigh' },
+    { type: 'animal', x: 730, animal: 'reindeer', depth: GROUND_Y + 40, hat: 'earmuffs' },
 
-    // Screen 1: the ice chest, with open snow to build in, a bin for spare blocks, and the penguin.
-    { type: 'stall', x: 1250, look: 'icechest' },
-    { type: 'animal', x: 1480, animal: 'penguin', depth: GROUND_Y + 50, hat: 'pompom' },
-    { type: 'bin', x: 1740 },
-    { type: 'pine', x: 1990, seed: 1 },
+    // Screen 1: an ice castle built from the ice chest's blocks (towers with turret tops at the
+    // ends and the middle, walls with windows between), then the ice chest itself, with open snow to
+    // build in, a bin for spare blocks, the penguin and a lamp.
+    ...iceCastle(1060, GROUND_Y + 20),
+    { type: 'stall', x: 1420, look: 'icechest' },
+    { type: 'animal', x: 1610, animal: 'penguin', depth: GROUND_Y + 50, hat: 'pompom' },
+    { type: 'lamp', x: 1700 },
+    { type: 'bin', x: 1830 },
+    { type: 'pine', x: 2010, seed: 1 },
 
     // Screen 2: a town house with the fox behind an upstairs shutter, a box of decorations on
     // its step for the pine beside it, and the spinning top.
@@ -45,14 +64,16 @@ export const winter: SceneDef = {
     { type: 'bin', x: 4760 },
     { type: 'pine', x: 5010, seed: 2, garland: true },
 
-    // Screen 5: the post van with parcels, and the raccoon.
+    // Screen 5: the post van with parcels under a string of lights across the street, and the raccoon.
+    { type: 'lights', x: 5640, width: 620 },
     { type: 'vehicle', x: 5440, vehicle: 'postvan' },
     { type: 'animal', x: 5760, animal: 'raccoon', depth: GROUND_Y + 50, hat: 'beanie' },
     { type: 'lamp', x: 6060 },
 
-    // Screen 6: the snow plough and the cocoa hut, with the cat.
-    { type: 'vehicle', x: 6420, vehicle: 'plough' },
-    { type: 'stall', x: 6860, look: 'cocoa' },
+    // Screen 6: the snow plough, a lit pine, and the cocoa hut, with the cat.
+    { type: 'vehicle', x: 6380, vehicle: 'plough' },
+    { type: 'pine', x: 6640, seed: 5, garland: true },
+    { type: 'stall', x: 6880, look: 'cocoa' },
     { type: 'animal', x: 7060, animal: 'cat', depth: GROUND_Y + 40 },
 
     // Screen 7: the fast food stall and a Christmas market table, with the pig and a hen at it.
@@ -79,10 +100,10 @@ export const winter: SceneDef = {
     { type: 'stall', x: 11100, look: 'ornaments' },
     { type: 'pine', x: 11340, seed: 7, height: 440 },
 
-    // Screen 11: the ice rink up on a snowy terrace, with the seal on it, under running lights.
-    { type: 'chaselights', x: 11860, width: 740 },
+    // Screen 11: the ice rink up on a snowy terrace, with the seal on it, under a string of lights.
+    { type: 'lights', x: 11860, width: 740 },
     { type: 'rink', x: 11860, width: 640 },
-    { type: 'animal', x: 11720, animal: 'seal', depth: GROUND_Y - 78 },
+    { type: 'animal', x: 11720, animal: 'seal', depth: GROUND_Y - 130 },
 
     // Screen 12: a lit pine, Santa's chair with the polar bear dressed as Santa, and the radio.
     { type: 'pine', x: 12420, seed: 4, garland: true },

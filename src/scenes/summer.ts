@@ -45,7 +45,7 @@ export const summer: SceneDef = {
 
     // Screen 4: the pear tree with an owl asleep in it, and the hen house, with a hen sitting in it.
     { type: 'tree', x: 4354, fruit: 'pear' },
-    { type: 'owl', x: 4394, height: 420 },
+    { type: 'owl', x: 4394, height: 378 },
     { type: 'flowers', x: 4600, seed: 3 },
     { type: 'coop', x: 4850 },
     { type: 'animal', x: 4850, animal: 'hen', depth: GROUND_Y + 40, home: 'coop' },
@@ -58,11 +58,12 @@ export const summer: SceneDef = {
     { type: 'animal', x: 5600, animal: 'duck', depth: GROUND_Y + 40, home: 'pond' },
     { type: 'bush', x: 6060, seed: 5, animal: 'beaver' },
 
-    // Screen 6: the swing, the spinning top, and a bin.
+    // Screen 6: the swing, a birdhouse, the spinning top, and a bin.
     { type: 'swing', x: 6420 },
-    { type: 'rock', x: 6560, seed: 4 },
-    { type: 'toy', x: 6700, toy: 'top', depth: GROUND_Y + 60 },
-    { type: 'bin', x: 6880 },
+    { type: 'birdhouse', x: 6620 },
+    { type: 'toy', x: 6760, toy: 'top', depth: GROUND_Y + 60 },
+    { type: 'bin', x: 6920 },
+    { type: 'rock', x: 7060, seed: 4 },
 
     // Screen 7: the farmhouse with a model ship on a sill and a cat behind an upstairs shutter,
     // a bench in front, and a puddle to sail the ship on.
@@ -73,7 +74,9 @@ export const summer: SceneDef = {
     { type: 'bench', x: 7480 },
     { type: 'puddle', x: 8056, width: 250 },
 
-    // Screen 8: the hat machine and the tractor.
+    // Screen 8: flowers by a bush, the hat machine and the tractor.
+    { type: 'flowers', x: 8330, seed: 8 },
+    { type: 'bush', x: 8480, seed: 9 },
     { type: 'dispenser', x: 8726 },
     { type: 'vehicle', x: 9096, vehicle: 'tractor' },
 
@@ -87,10 +90,12 @@ export const summer: SceneDef = {
     { type: 'puddle', x: 10976, width: 280 },
     { type: 'bush', x: 11206, seed: 7, animal: 'raccoon' },
 
-    // Screen 11: a second garden with its own cloud, and a last bin.
+    // Screen 11: a second garden with its own cloud, flowers, a last bin and a rock.
     { type: 'bed', x: 11626, width: 300, veg: ['tomato', 'cabbage', 'tomato'] },
     { type: 'cloud', x: 11626, y: 140 },
-    { type: 'bin', x: 12036 },
+    { type: 'flowers', x: 11880, seed: 5 },
+    { type: 'bin', x: 12060 },
+    { type: 'rock', x: 12220, seed: 6 },
 
     // Screen 12: the sunflower field.
     { type: 'sunflowers', x: 12806, width: 860 },

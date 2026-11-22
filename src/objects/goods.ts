@@ -86,6 +86,10 @@ interface GoodLook {
   food: boolean;
 }
 
+/** Firewood and the kindling split from it are drawn bigger than their shapes, to carry and see easily. */
+const FIREWOOD_SCALE = 1.7;
+const KINDLING_SCALE = 1.5;
+
 export const GOODS: Record<GoodKind, GoodLook> = {
   hay: { radius: 34, height: 36, food: true },
   pie: { radius: 36, height: 26, food: true },
@@ -124,8 +128,8 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   eggHearts: { radius: 29, height: 70, food: false },
   eggStars: { radius: 29, height: 70, food: false },
   eggFlowers: { radius: 29, height: 70, food: false },
-  firewood: { radius: 30, height: 30, food: false },
-  kindling: { radius: 26, height: 26, food: false },
+  firewood: { radius: 30 * FIREWOOD_SCALE, height: 30 * FIREWOOD_SCALE, food: false },
+  kindling: { radius: 26 * KINDLING_SCALE, height: 26 * KINDLING_SCALE, food: false },
   gift: { radius: 32, height: 50, food: false },
   giftSmall: { radius: 24, height: 36, food: false },
   giftTall: { radius: 26, height: 66, food: false },
@@ -134,11 +138,11 @@ export const GOODS: Record<GoodKind, GoodLook> = {
   icecube: { radius: 40, height: 70, food: false },
   icewindow: { radius: 40, height: 70, food: false },
   icetop: { radius: 40, height: 62, food: false },
-  candleRed: { radius: 16, height: 40, food: false },
-  candleYellow: { radius: 16, height: 40, food: false },
-  candleGreen: { radius: 16, height: 40, food: false },
-  candleBlue: { radius: 16, height: 40, food: false },
-  candlePink: { radius: 16, height: 40, food: false },
+  candleRed: { radius: 22, height: 50, food: false },
+  candleYellow: { radius: 22, height: 50, food: false },
+  candleGreen: { radius: 22, height: 50, food: false },
+  candleBlue: { radius: 22, height: 50, food: false },
+  candlePink: { radius: 22, height: 50, food: false },
   snowball1: { radius: 22, height: 42, food: false },
   snowball2: { radius: 30, height: 57, food: false },
   snowball3: { radius: 38, height: 72, food: false },
@@ -229,9 +233,12 @@ function lines(ctx: CanvasRenderingContext2D, color: string, width: number, segm
 
 /** The candle item is just its wax, so candles stack flush; the wick and flame stand above it. */
 const CANDLE_SHIFT = -7.5;
+/** Candles are drawn this much wider and taller than their shapes below. */
+const CANDLE_SCALE = { x: 1.4, y: 1.25 };
 
 /** A pillar candle's wax in its colour; the wick and flame above it are drawn by drawCandleFlame. */
 function candle(ctx: CanvasRenderingContext2D, wax: string): void {
+  ctx.scale(CANDLE_SCALE.x, CANDLE_SCALE.y);
   ctx.translate(0, CANDLE_SHIFT);
   fill(ctx, wax, () => ctx.roundRect(-14, -12, 28, 39, [6, 6, 5, 5]));
   fill(ctx, 'rgba(255, 255, 255, 0.28)', () => ctx.roundRect(-9, -9, 6, 30, 3));
@@ -240,7 +247,7 @@ function candle(ctx: CanvasRenderingContext2D, wax: string): void {
 }
 
 /** Where a candle's flame has its middle, above the item's centre. */
-export const CANDLE_FLAME_DY = -20 + CANDLE_SHIFT;
+export const CANDLE_FLAME_DY = (-20 + CANDLE_SHIFT) * CANDLE_SCALE.y;
 
 /**
  * A candle's wick, and its flame when lit, with the same centre and transform as
@@ -259,7 +266,7 @@ export function drawCandleFlame(
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.scale(scaleX, scaleY);
+  ctx.scale(scaleX * CANDLE_SCALE.y, scaleY * CANDLE_SCALE.y);
   ctx.translate(0, CANDLE_SHIFT);
   lines(ctx, '#5e4a42', 2.5, [[0, -12, 0, -17]]);
   if (lit) {
@@ -985,6 +992,7 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
   },
   firewood(ctx) {
     // A short round log on its side: bark along the length, the cut end facing the viewer.
+    ctx.scale(FIREWOOD_SCALE, FIREWOOD_SCALE);
     fill(ctx, '#8a5f42', () => ctx.roundRect(-30, -15, 50, 30, 10));
     lines(ctx, '#74503a', 2, [
       [-24, -7, -2, -7],
@@ -1002,6 +1010,7 @@ const DRAW: Record<GoodKind, (ctx: CanvasRenderingContext2D) => void> = {
   },
   kindling(ctx) {
     // Three split wedges standing together, tied round the middle with twine.
+    ctx.scale(KINDLING_SCALE, KINDLING_SCALE);
     for (const [x, a, h] of [
       [-12, -0.12, 24],
       [12, 0.12, 24],

@@ -9,6 +9,7 @@ import {
   PLACE_SPEED,
   SCREEN_W,
   STEP,
+  VIEW_ZOOM,
   WORLD_H,
   palette,
 } from './config';
@@ -48,7 +49,7 @@ import { IceColumns } from './objects/columns';
 import { Rink } from './objects/rink';
 import { SledHill } from './objects/sledhill';
 import { Stall } from './objects/stall';
-import { ChaseLights, Pine, StreetLamp, drawSnowBank, drawTown } from './objects/town';
+import { LightString, Pine, StreetLamp, drawSnowBank, drawTown } from './objects/town';
 import { SantaChair } from './objects/throne';
 import { DecorBox, MarketTable } from './objects/market';
 import { Nest } from './objects/nest';
@@ -225,7 +226,10 @@ const HEN_CHAT_DIST = 200;
 const HAT_CAP = 15;
 // The winter town's things: gifts and parcels, ice cubes, candles, snowballs, and each stall's goods.
 const GIFT_CAP = 6;
+/** Ice blocks out beyond the ones the level starts with (the winter castle). */
 const ICE_CAP = 16;
+/** Drawing depth of owls in tree crowns; what is stacked on a tree's fruit is drawn just after. */
+const IN_TREE = -1e6;
 const SNOWBALL_CAP = 12;
 const STALL_CAP = 10;
 /** Decorations are wanted in numbers: enough to dress a few trees. */
@@ -267,6 +271,8 @@ const BURN_SECONDS = 1.5;
 /** A kite sinks no faster than this, and floats no higher than this. */
 const KITE_SINK = 80;
 const KITE_CEILING = 90;
+/** A cloud stays at least this far below the top of the view. */
+const CLOUD_TOP = 80;
 /** A cloud that rained at least this long leaves a rainbow behind in spring. */
 const RAINBOW_AFTER = 1.5;
 
@@ -351,7 +357,7 @@ export class Game {
   private rinks: Rink[] = [];
   private lamps: StreetLamp[] = [];
   private pines: Pine[] = [];
-  private chases: ChaseLights[] = [];
+  private lightStrings: LightString[] = [];
   private chairs: SantaChair[] = [];
   private tables: MarketTable[] = [];
   private boxes: DecorBox[] = [];
@@ -485,6 +491,9 @@ export class Game {
         case 'picnic':
           this.picnics.push(new Picnic(def.x, def.width));
           break;
+        case 'lanterns':
+          this.picnics.push(new Picnic(def.x, def.width, false, def.high));
+          break;
         case 'basket':
           this.baskets.push(new Basket(def.x));
           break;
@@ -536,8 +545,8 @@ export class Game {
         case 'pine':
           this.pines.push(new Pine(def.x, def.seed, def.garland, def.height));
           break;
-        case 'chaselights':
-          this.chases.push(new ChaseLights(def.x, def.width));
+        case 'lights':
+          this.lightStrings.push(new LightString(def.x, def.width));
           break;
         case 'santachair':
           this.chairs.push(new SantaChair(def.x));
@@ -631,6 +640,7 @@ export class Game {
           break;
       }
     }
+    this.iceCap = ICE_CAP + this.countKinds(isIce);
     for (const def of scene.objects) {
       if (def.type !== 'lilypads') continue;
       const pond = this.puddles.find((p) => Math.abs(this.delta(def.x, p.x)) < p.width / 2);
@@ -929,10 +939,12 @@ export class Game {
   }
 
   resize(cssW: number, cssH: number): void {
-    this.scale = Math.min(cssW / SCREEN_W, cssH / WORLD_H);
+    this.scale = Math.min(cssW / SCREEN_W, cssH / WORLD_H) * VIEW_ZOOM;
     this.viewW = cssW / this.scale;
     this.viewH = cssH / this.scale;
     this.camY = WORLD_H - this.viewH;
+    // Clouds keep clear of the top of the view.
+    for (const cloud of this.clouds) cloud.y = Math.max(cloud.y, this.camY + CLOUD_TOP);
     this.setCamera(this.camX);
   }
 
@@ -940,7 +952,7 @@ export class Game {
   private setCamera(x: number): void {
     this.camTravel += x - this.camX;
     this.camX = this.wrap(x);
-    this.sky.setView(this.camX, this.viewW);
+    this.sky.setView(this.camX, this.viewW, this.camY);
   }
 
   /** A point on screen, in world units on the loop. */
@@ -1129,8 +1141,8 @@ export class Game {
       pine.tap();
       return audio.crunch(0.2);
     }
-    const chase = this.chases.find((c) => c.hits(p.x, p.y, 10));
-    if (chase) return audio.lantern(chase.tap(p.x, p.y));
+    const lights = this.lightStrings.find((c) => c.hits(p.x, p.y, 10));
+    if (lights) return audio.lantern(lights.tap(p.x, p.y));
     const stall = this.stalls.find((st) => st.hits(p.x, p.y, 0));
     if (stall) return audio.lantern(stall.toggleLights());
     const owl = this.owls.find((o) => o.hits(p.x, p.y, 10));
@@ -1798,6 +1810,9 @@ export class Game {
   }
 
   /** How many things of a kind are out in the world. */
+  /** The ice chest's cap, counting the blocks the level starts with. */
+  private iceCap = ICE_CAP;
+
   private countKinds(match: (kind: ItemKind) => boolean): number {
     let n = 0;
     for (const stack of this.stacks) for (const { kind } of stack.items) if (match(kind)) n++;
@@ -1808,7 +1823,7 @@ export class Game {
   private stallCanGive(stall: Stall, hats: number): boolean {
     if (stall.look === 'hats') return hats < HAT_CAP;
     const kinds = new Set<ItemKind>(stall.kinds);
-    const cap = stall.look === 'icechest' ? ICE_CAP : stall.look === 'ornaments' ? ORNAMENT_CAP : STALL_CAP;
+    const cap = stall.look === 'icechest' ? this.iceCap : stall.look === 'ornaments' ? ORNAMENT_CAP : STALL_CAP;
     return this.countKinds((k) => kinds.has(k)) < cap;
   }
 
@@ -2251,7 +2266,7 @@ export class Game {
       const { cloud } = hold;
       const target = cloud.x + this.delta(finger.x + hold.dx, cloud.x);
       cloud.x = Math.max(cloud.minX, Math.min(cloud.maxX, target));
-      cloud.y = Math.max(70, Math.min(300, finger.y + hold.dy));
+      cloud.y = Math.max(this.camY + CLOUD_TOP, Math.min(this.camY + 300, finger.y + hold.dy));
     }
     const wet = (x: number) => this.clouds.some((c) => c.wets(x));
     const out = this.countOut();
@@ -2311,8 +2326,8 @@ export class Game {
     if (stack.items.length === 1 && stack.items[0].kind === 'kite') {
       stack.vy = Math.min(KITE_SINK, (stack.vy + GRAVITY * 0.08 * dt) * Math.exp(-(stack.vy < 0 ? 1.4 : 0) * dt));
       stack.vx = stack.vx * Math.exp(-0.8 * dt) + Math.sin(this.time * 1.7 + stack.x * 0.01) * 50 * dt;
-      if (stack.bottom < KITE_CEILING) {
-        stack.bottom = KITE_CEILING;
+      if (stack.bottom < this.camY + KITE_CEILING) {
+        stack.bottom = this.camY + KITE_CEILING;
         stack.vy = Math.max(stack.vy, 0);
       }
     } else stack.vy += GRAVITY * dt;
@@ -2457,7 +2472,6 @@ export class Game {
     for (const rink of this.rinks) rink.update(dt);
     for (const lamp of this.lamps) lamp.update(dt);
     for (const pine of this.pines) pine.update(dt);
-    for (const chase of this.chases) chase.update(dt);
   }
 
   /** A tower goes under (or into the bin) one item at a time, bottom first; the rest drops in after it. */
@@ -2525,12 +2539,13 @@ export class Game {
   /** Drawing order: further back first. */
   private depthOf(stack: Stack): number {
     if (stack.state === 'held') return Infinity;
-    // On a tree: behind everything on the ground. Elsewhere: just in front of what holds it.
+    // On a tree: behind everything on the ground, but in front of the owl in it. Elsewhere: just in
+    // front of what holds it.
     const a = stack.anchor;
     if (a) {
       if ('bed' in a) return a.bed.depth + 0.1;
       if ('perch' in a) return a.perch.seatDepth?.(a.seat) ?? a.perch.depth + 0.1;
-      return -Infinity;
+      return IN_TREE + 1;
     }
     const water = stack.drowningIn ?? stack.floatingIn;
     if (water) return water.depth + 0.5;
@@ -2657,7 +2672,7 @@ export class Game {
       ...this.sunfields.map((f) => at(f.depth, f.x, f.width / 2 + 60, () => f.draw(ctx))),
       ...this.decor.map((d) => at(d.depth, d.x, 100, () => d.draw(ctx, t))),
       ...this.scarecrows.map((s) => at(s.depth, s.x, 120, () => s.draw(ctx, t))),
-      ...this.owls.map((o) => at(o.depth, o.x, 60, () => o.draw(ctx, this.sky.night))),
+      ...this.owls.map((o) => at(IN_TREE, o.x, 60, () => o.draw(ctx, this.sky.night))),
       ...this.birds.map((b) => at(b.depth, b.x, 1200, () => b.draw(ctx))),
       ...this.picnics.flatMap((p) => [
         at(p.backDepth, p.x, p.width / 2 + 80, () => p.drawBack(ctx)),
@@ -2684,7 +2699,7 @@ export class Game {
       ...this.rinks.map((rk) => at(rk.depth, rk.x, rk.width / 2 + 30, () => rk.draw(ctx))),
       ...this.lamps.map((l) => at(l.depth, l.x, 60, () => l.draw(ctx))),
       ...this.pines.map((pn) => at(pn.depth, pn.x, 140, () => pn.draw(ctx))),
-      ...this.chases.map((c) => at(c.depth, c.x, c.width / 2 + 20, () => c.draw(ctx))),
+      ...this.lightStrings.map((c) => at(c.depth, c.x, c.width / 2 + 20, () => c.draw(ctx))),
       ...this.nests.flatMap((n) => [at(n.depth, n.x, 60, () => n.draw(ctx)), at(n.frontDepth, n.x, 60, () => n.drawFront(ctx))]),
       ...this.pads.map((pd) => at(pd.depth, pd.x, pd.width / 2, () => pd.draw(ctx))),
       ...this.hives.map((h) => at(h.depth, h.x, 140, () => h.draw(ctx, t))),
@@ -2742,8 +2757,8 @@ export class Game {
     else if (theme.land === 'park') drawParkTown(ctx, left, right, this.camTravel);
     else if (theme.land === 'woods') drawWoods(ctx, left, right, this.camTravel);
     else {
-      this.drawHills(ctx, left, right, 0.3, GROUND_Y - 120, 90, 0.004, theme.hillFar);
-      this.drawHills(ctx, left, right, 0.6, GROUND_Y - 60, 60, 0.007, theme.hillNear);
+      this.drawHills(ctx, left, right, 0.3, GROUND_Y - 180, 130, 0.004, theme.hillFar);
+      this.drawHills(ctx, left, right, 0.6, GROUND_Y - 90, 80, 0.007, theme.hillNear);
     }
 
     ctx.fillStyle = theme.ground;
@@ -2797,7 +2812,7 @@ export class Game {
         for (const stall of this.stalls) stall.drawGlow(screen, this.sky.night);
         for (const lamp of this.lamps) lamp.drawGlow(screen, this.sky.night);
         for (const pine of this.pines) if (pine.garland) pine.drawGlow(screen, this.sky.night);
-        for (const chase of this.chases) chase.drawGlow(screen, this.sky.night);
+        for (const lights of this.lightStrings) lights.drawGlow(screen, this.sky.night);
         for (const c of this.columns) {
           const lit = c.colors.map((_, i) =>
             this.stacks.some((st) => st.anchor && 'perch' in st.anchor && st.anchor.perch === c && st.anchor.seat === i && st.items[0].lit),

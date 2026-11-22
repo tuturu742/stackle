@@ -26,8 +26,8 @@ interface Row {
 }
 
 const ROWS: Row[] = [
-  { parallax: 0.3, cell: 150, tall: 260, body: '#c9d7ea', roof: '#b9c9e0', window: '#dbe5f2', snow: '#eef3fa' },
-  { parallax: 0.6, cell: 190, tall: 170, body: '#b3c5df', roof: '#a1b5d4', window: '#d3def0', snow: '#f3f7fc' },
+  { parallax: 0.3, cell: 190, tall: 380, body: '#c9d7ea', roof: '#b9c9e0', window: '#dbe5f2', snow: '#eef3fa' },
+  { parallax: 0.6, cell: 240, tall: 250, body: '#b3c5df', roof: '#a1b5d4', window: '#d3def0', snow: '#f3f7fc' },
 ];
 
 /** Far-off snowy roofs and pines, in two rows that scroll slower than the ground. */
@@ -255,31 +255,40 @@ export class StreetLamp {
   }
 }
 
-/** Bulb colours for the strings of lights. */
-const BULBS = ['#e8665c', '#f2c14e', '#7fbf6a', '#6b9fe0', '#ef8fb4'];
+/** Bulb colours for the strings of lights: rich, so a lit bulb never looks washed out. */
+const BULBS = ['#e2453a', '#f2ad16', '#45a845', '#3d7fe0', '#e5579a'];
 
-function bulb(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, lit: number): void {
+/** A bulb on a string, `size` times the street lamps' small one: lit in its colour, or grey glass. */
+function bulb(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, lit: boolean, size = 1): void {
   ctx.fillStyle = '#4b4f58';
-  ctx.fillRect(x - 2, y - 7, 4, 4);
-  ctx.fillStyle = lit > 0 ? color : '#9aa3ad';
-  ctx.globalAlpha = 0.45 + 0.55 * lit;
+  ctx.fillRect(x - 2 * size, y - 7 * size, 4 * size, 4 * size);
+  ctx.fillStyle = lit ? color : '#b4bcc6';
   ctx.beginPath();
-  ctx.ellipse(x, y, 4.5, 6.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(x, y, 4.5 * size, 6.5 * size, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  // A little shine on the glass.
+  ctx.fillStyle = lit ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(x - 1.5 * size, y - 2 * size, 1.4 * size, 2.2 * size, -0.3, 0, Math.PI * 2);
+  ctx.fill();
 }
 
-function bulbGlow(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, strength: number): void {
-  const glow = ctx.createRadialGradient(x, y, 1, x, y, 26);
+function bulbGlow(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, strength: number, size = 1): void {
+  const r = 26 * size;
+  const glow = ctx.createRadialGradient(x, y, 1, x, y, r);
   glow.addColorStop(0, color);
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.globalAlpha = strength;
   ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(x, y, 26, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
 }
+
+/** Bulbs on each swag of a pine's string of lights, and how big they are. */
+const PINE_BULBS = 4;
+const PINE_BULB_SIZE = 1.5;
 
 /**
  * A snowy pine. A tap shakes it, and a little snow puffs off its branches; a
@@ -302,7 +311,7 @@ export class Pine implements Perch {
     readonly garland = false,
     height?: number,
   ) {
-    this.height = height ?? 200 + 120 * hash(seed * 13 + 5);
+    this.height = height ?? 290 + 140 * hash(seed * 13 + 5);
     const h = this.height;
     // Spots along the lower edge of each tier, fewer further up, and the tip.
     this.spots = [];
@@ -345,7 +354,7 @@ export class Pine implements Perch {
     return this.lightsOn;
   }
 
-  /** The bulbs on its string of lights: three swags across the tree. */
+  /** The bulbs on its string of lights: three swags across the tree, a few big bulbs on each. */
   private bulbs(): { x: number; y: number; color: string }[] {
     if (!this.garland) return [];
     const h = this.height;
@@ -357,8 +366,8 @@ export class Pine implements Perch {
     ]) {
       const y0 = -h * 0.12 - (i * h * 0.78) / 4;
       const w = this.width * (1 - i * 0.2);
-      for (let k = 0; k <= 6; k++) {
-        const t = k / 6;
+      for (let k = 0; k < PINE_BULBS; k++) {
+        const t = k / (PINE_BULBS - 1);
         out.push({
           x: this.x + (from + (to - from) * t) * w,
           y: GROUND_Y + y0 + Math.sin(t * Math.PI) * 16 - (to - from) * t * 20,
@@ -393,7 +402,13 @@ export class Pine implements Perch {
   /** Its lights glow softly at night while they are on. */
   drawGlow(ctx: CanvasRenderingContext2D, night: number): void {
     if (night <= 0 || !this.lightsOn) return;
-    for (const b of this.bulbs()) bulbGlow(ctx, b.x, b.y, b.color, 0.7 * night);
+    for (const b of this.bulbs()) {
+      bulbGlow(ctx, b.x, b.y, b.color, 0.7 * night, PINE_BULB_SIZE);
+      // The bulb itself shines clear over the dark.
+      ctx.globalAlpha = night;
+      bulb(ctx, b.x, b.y, b.color, true, PINE_BULB_SIZE);
+      ctx.globalAlpha = 1;
+    }
   }
 
   draw(ctx: CanvasRenderingContext2D): void {
@@ -441,9 +456,9 @@ export class Pine implements Perch {
       ctx.lineWidth = 2;
       const bulbs = this.bulbs();
       ctx.beginPath();
-      bulbs.forEach((b, i) => (i % 7 === 0 ? ctx.moveTo(b.x, b.y - 5) : ctx.lineTo(b.x, b.y - 5)));
+      bulbs.forEach((b, i) => (i % PINE_BULBS === 0 ? ctx.moveTo(b.x, b.y - 8) : ctx.lineTo(b.x, b.y - 8)));
       ctx.stroke();
-      for (const b of bulbs) bulb(ctx, b.x, b.y, b.color, this.lightsOn ? 1 : 0);
+      for (const b of bulbs) bulb(ctx, b.x, b.y, b.color, this.lightsOn, PINE_BULB_SIZE);
     }
     // Snow puffing off the branches after a shake, drifting down.
     if (this.shake > 0) {
@@ -462,65 +477,54 @@ export class Pine implements Perch {
   }
 }
 
-/** Seconds for the light to run along the whole string once. */
-const CHASE_SECONDS = 2.4;
+/** How big a string's bulbs are, and how far apart. */
+const STRING_BULB_SIZE = 1.8;
+const STRING_BULB_GAP = 64;
 
 /**
- * A long string of lights between two tall posts. Its bulbs light up one after
- * another, a soft glow running along the string again and again. A tap on a
- * bulb switches that bulb on or off; a tap on a post switches the whole string.
+ * A long string of big lights between two tall candy-cane posts, as over the rink.
+ * Each bulb is on or off, never dimmed or blinking: a tap on a bulb switches that
+ * bulb, a tap on a post switches the whole string.
  */
-export class ChaseLights {
+export class LightString {
   readonly depth = GROUND_Y - 1;
   /** Each bulb: switched on or not. */
   readonly on: boolean[];
-  private time = 0;
   private readonly count: number;
 
   constructor(
     readonly x: number,
     readonly width: number,
   ) {
-    this.count = Math.max(8, Math.round(width / 46));
+    this.count = Math.max(8, Math.round(width / STRING_BULB_GAP));
     this.on = Array.from({ length: this.count }, () => true);
   }
 
   private get top(): number {
-    return GROUND_Y - 300;
+    return GROUND_Y - 430;
+  }
+
+  private sag(t: number): number {
+    return this.top + 14 + Math.sin(t * Math.PI) * 80;
   }
 
   private bulbAt(i: number): { x: number; y: number; color: string } {
     const t = i / (this.count - 1);
-    const left = this.x - this.width / 2;
-    return {
-      x: left + t * this.width,
-      y: this.top + 10 + Math.sin(t * Math.PI) * 60,
-      color: BULBS[i % BULBS.length],
-    };
-  }
-
-  /** How bright bulb i is now: the running glow, with a soft tail. */
-  private brightness(i: number): number {
-    if (!this.on[i]) return 0;
-    const head = ((this.time / CHASE_SECONDS) % 1) * (this.count + 3);
-    const behind = head - i;
-    return behind >= 0 && behind < 3 ? 1 - behind / 3 : 0.15;
+    return { x: this.x - this.width / 2 + t * this.width, y: this.sag(t), color: BULBS[i % BULBS.length] };
   }
 
   hits(px: number, py: number, slop: number): boolean {
     const left = this.x - this.width / 2;
     const right = this.x + this.width / 2;
-    for (const postX of [left, right]) if (Math.abs(px - postX) < 12 + slop && py > this.top - 20 - slop && py < GROUND_Y) return true;
+    for (const postX of [left, right]) if (Math.abs(px - postX) < 14 + slop && py > this.top - 24 - slop && py < GROUND_Y) return true;
     if (px < left || px > right) return false;
-    const t = (px - left) / this.width;
-    const y = this.top + 10 + Math.sin(t * Math.PI) * 60;
-    return Math.abs(py - y) < 14 + slop;
+    return Math.abs(py - this.sag((px - left) / this.width)) < 20 + slop;
   }
 
   /** A bulb under the finger switches alone; a post switches them all (on, unless all were on). */
   tap(px: number, py: number): boolean {
     let near = -1;
-    let best = 30;
+    let best = 36;
     for (let i = 0; i < this.count; i++) {
       const b = this.bulbAt(i);
       const d = Math.hypot(px - b.x, py - b.y);
@@ -538,10 +542,6 @@ export class ChaseLights {
     return all;
   }
 
-  update(dt: number): void {
-    this.time += dt;
-  }
-
   draw(ctx: CanvasRenderingContext2D): void {
     const left = this.x - this.width / 2;
     const right = this.x + this.width / 2;
@@ -549,36 +549,40 @@ export class ChaseLights {
       // Striped posts, like candy canes, with a snowy cap.
       ctx.fillStyle = '#f6efe0';
       ctx.beginPath();
-      ctx.roundRect(postX - 8, this.top - 20, 16, GROUND_Y - this.top + 22, 8);
+      ctx.roundRect(postX - 10, this.top - 20, 20, GROUND_Y - this.top + 22, 10);
       ctx.fill();
       ctx.fillStyle = '#e8665c';
-      for (let y = this.top - 10; y < GROUND_Y - 10; y += 34) ctx.fillRect(postX - 8, y, 16, 12);
+      for (let y = this.top - 10; y < GROUND_Y - 10; y += 40) ctx.fillRect(postX - 10, y, 20, 14);
       ctx.fillStyle = SNOW;
       ctx.beginPath();
-      ctx.arc(postX, this.top - 22, 12, 0, Math.PI * 2);
+      ctx.arc(postX, this.top - 24, 15, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.strokeStyle = '#4b4f58';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.beginPath();
     for (let i = 0; i < this.count; i++) {
       const b = this.bulbAt(i);
-      if (i === 0) ctx.moveTo(b.x, b.y - 5);
-      else ctx.lineTo(b.x, b.y - 5);
+      if (i === 0) ctx.moveTo(b.x, b.y - 9);
+      else ctx.lineTo(b.x, b.y - 9);
     }
     ctx.stroke();
     for (let i = 0; i < this.count; i++) {
       const b = this.bulbAt(i);
-      bulb(ctx, b.x, b.y, b.color, this.brightness(i));
+      bulb(ctx, b.x, b.y, b.color, this.on[i], STRING_BULB_SIZE);
     }
   }
 
   drawGlow(ctx: CanvasRenderingContext2D, night: number): void {
     if (night <= 0) return;
     for (let i = 0; i < this.count; i++) {
+      if (!this.on[i]) continue;
       const b = this.bulbAt(i);
-      const k = this.brightness(i);
-      if (k > 0.2) bulbGlow(ctx, b.x, b.y, b.color, k * 0.8 * night);
+      bulbGlow(ctx, b.x, b.y, b.color, 0.8 * night, STRING_BULB_SIZE);
+      // The bulb itself shines clear over the dark.
+      ctx.globalAlpha = night;
+      bulb(ctx, b.x, b.y, b.color, true, STRING_BULB_SIZE);
+      ctx.globalAlpha = 1;
     }
   }
 }
