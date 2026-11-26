@@ -54,7 +54,7 @@ function ready(): AudioContext | null {
 }
 
 // A sine tone that glides from one pitch to another with a soft envelope.
-function tone(from: number, to: number, duration: number, volume: number, delay = 0): void {
+function tone(from: number, to: number, duration: number, volume: number, delay = 0, out?: AudioNode): void {
   const ac = ready();
   if (!ac || !master) return;
   const t = ac.currentTime + delay;
@@ -66,12 +66,12 @@ function tone(from: number, to: number, duration: number, volume: number, delay 
   gain.gain.setValueAtTime(0.0001, t);
   gain.gain.exponentialRampToValueAtTime(volume, t + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-  osc.connect(gain).connect(master);
+  osc.connect(gain).connect(out ?? master);
   osc.start(t);
   osc.stop(t + duration + 0.02);
 }
 
-function noise(duration: number, frequency: number, volume: number, delay = 0): void {
+function noise(duration: number, frequency: number, volume: number, delay = 0, out?: AudioNode): void {
   const ac = ready();
   if (!ac || !master) return;
   const t = ac.currentTime + delay;
@@ -87,7 +87,7 @@ function noise(duration: number, frequency: number, volume: number, delay = 0): 
   const gain = ac.createGain();
   gain.gain.setValueAtTime(volume, t);
   gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
-  src.connect(filter).connect(gain).connect(master);
+  src.connect(filter).connect(gain).connect(out ?? master);
   src.start(t);
 }
 
@@ -788,40 +788,69 @@ const SONGS: Song[] = [
 let songTimer = 0;
 let songStep = 0;
 let songNext = 0;
+/** The playing song's own volume: notes already scheduled go quiet with it when the song stops. */
+let songBus: GainNode | null = null;
+/** How far ahead notes are scheduled. Generous, so a busy moment on the iPad (timers running late)
+ * never lets the song run dry. */
+const SONG_AHEAD = 0.8;
+
+/** Fade out the song bus, and with it every note it still has scheduled. */
+function stopSongBus(): void {
+  const bus = songBus;
+  songBus = null;
+  if (!bus || !ctx) return;
+  const t = ctx.currentTime;
+  bus.gain.setValueAtTime(bus.gain.value, t);
+  bus.gain.linearRampToValueAtTime(0, t + 0.06);
+  setTimeout(() => bus.disconnect(), 200);
+}
 
 /** Play a song on a loop (1-3 the boombox's, 4-6 the winter radio's carols, 7-9 the spring music
  * box's, 10-12 the autumn gramophone's), or 0 for quiet. */
 export function playSong(n: number): void {
   clearInterval(songTimer);
   songTimer = 0;
+  stopSongBus();
   const song = SONGS[n - 1];
   if (!song) return;
   songStep = 0;
   // Starts on the first beat once audio is running: a level can open before iOS allows sound.
   songNext = -Infinity;
-  // Notes are scheduled a little ahead, so the beat stays even.
+  // Notes are scheduled ahead, so the beat stays even.
   songTimer = window.setInterval(() => {
-    const now = ready()?.currentTime;
-    if (now === undefined) return;
-    // At the start, or after a pause (the app was away), pick the beat up from now.
-    if (songNext < now - 0.5) songNext = now + 0.05;
-    while (songNext < now + 0.3) {
-      const delay = Math.max(0, songNext - now);
+    const ac = ready();
+    if (!ac || !master) return;
+    const now = ac.currentTime;
+    if (!songBus) {
+      songBus = ac.createGain();
+      songBus.connect(master);
+    }
+    if (songNext === -Infinity || songNext < now - 2) {
+      // At the start, or after a pause (the app was away): pick the beat up from now.
+      songNext = now + 0.05;
+    } else if (songNext < now) {
+      // Running late: skip the notes whose time has passed rather than play them all at once.
+      const missed = Math.ceil((now - songNext) / song.step);
+      songStep += missed;
+      songNext += missed * song.step;
+    }
+    while (songNext < now + SONG_AHEAD) {
+      const delay = songNext - now;
       const m = song.melody[songStep % song.melody.length];
       const b = song.bass[songStep % song.bass.length];
       if (m !== null) {
         const f = song.root * Math.pow(2, m / 12);
         if (song.bells) {
           // A bell: the note, an octave up ringing out, and a faint shimmer above that dies fast.
-          tone(f, f, song.step * 2.4, 0.08, delay);
-          tone(f * 2, f * 2, song.step * 1.8, 0.035, delay);
-          tone(f * 3.01, f * 3.01, song.step * 0.6, 0.015, delay);
-        } else tone(f, f, song.step * 1.6, 0.1, delay);
+          tone(f, f, song.step * 2.4, 0.08, delay, songBus);
+          tone(f * 2, f * 2, song.step * 1.8, 0.035, delay, songBus);
+          tone(f * 3.01, f * 3.01, song.step * 0.6, 0.015, delay, songBus);
+        } else tone(f, f, song.step * 1.6, 0.1, delay, songBus);
       }
-      if (song.sleigh && songStep % 2 === 0) noise(0.05, 7000, songStep % 4 === 0 ? 0.03 : 0.018, delay);
+      if (song.sleigh && songStep % 2 === 0) noise(0.05, 7000, songStep % 4 === 0 ? 0.03 : 0.018, delay, songBus);
       if (b !== null) {
         const f = song.root * Math.pow(2, b / 12);
-        tone(f, f * 0.98, song.step * 3, 0.12, delay);
+        tone(f, f * 0.98, song.step * 3, 0.12, delay, songBus);
       }
       songStep++;
       songNext += song.step;

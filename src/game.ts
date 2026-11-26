@@ -1076,13 +1076,26 @@ export class Game {
       cloud.raining = true;
       this.cloudHolds.set(id, { cloud, cssX, cssY, dx: cloud.x - p.x, dy: cloud.y - p.y });
       audio.setRain(true);
-    } else if (this.sky.hits(cssX / this.scale + this.camX, p.y, GRAB_SLOP)) {
+    } else if (this.sky.hits(cssX / this.scale + this.camX, p.y, GRAB_SLOP) && !this.inFrontOfSky(p)) {
       this.sky.toggle();
     } else {
       // Empty ground, sky or a structure: a drag moves the world, a tap goes to what is there.
       this.camVx = 0;
       this.pans.set(id, { cssX, cssY, speed: 0, startX: cssX, startY: cssY, moved: 0 });
     }
+  }
+
+  /** Something tappable drawn in front of the sun or moon (lights, lanterns, a pine, an owl, a bird):
+   * a touch there is for it, not the sky. */
+  private inFrontOfSky(p: { x: number; y: number }): boolean {
+    return (
+      this.lightStrings.some((c) => c.hits(p.x, p.y, 10)) ||
+      this.pines.some((t) => t.hits(p.x, p.y, 10)) ||
+      this.lamps.some((l) => l.hits(p.x, p.y, 10)) ||
+      this.owls.some((o) => o.hits(p.x, p.y, 10)) ||
+      this.birds.some((b) => b.hits(p.x, p.y, GRAB_SLOP)) ||
+      this.picnics.some((pc) => pc.lanternAt(p.x, p.y, 8) !== null)
+    );
   }
 
   /** A tap on a structure or scenery: each does its own small thing. */

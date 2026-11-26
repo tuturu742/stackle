@@ -121,7 +121,8 @@ from it out of committed files: the repo is public.
   Vegetable beds regrow picked plots only while rained on; rain also makes fruit regrow 3x
   faster and ripples puddles. Growing fruit and vegetables look clearly unripe (small,
   green, mostly hidden in soil) and pop to full size only when pickable.
-- Tapping the sun brings night (`src/sky.ts`), tapping the moon brings day. At night animals
+- Tapping the sun brings night (`src/sky.ts`), tapping the moon brings day. Anything tappable drawn
+  in front of them (light strings, lanterns, lamps, pines, an owl, a bird) takes the tap instead. At night animals
   sleep; one at a time snores quietly with a bubble every few seconds. Holding an animal or
   offering it food keeps it awake for a little while.
 - All art is original, drawn in code: flat rounded shapes, soft palette, no outlines.
